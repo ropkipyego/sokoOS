@@ -8,9 +8,10 @@ SokoOS is a commercial-grade, multi-tenant commerce operating system for African
 
 | Phase | Status |
 | --- | --- |
-| Software Requirements Specification | Complete — see [`docs/requirements/01-software-requirements-specification.md`](./docs/requirements/01-software-requirements-specification.md) |
-| Architecture | Next |
-| Implementation | Not started (blocked on Architecture → Database → API → UI Design System) |
+| Software Requirements Specification | Complete — [`docs/requirements/…`](./docs/requirements/01-software-requirements-specification.md) |
+| Architecture | Complete — [`docs/architecture/`](./docs/architecture/README.md) |
+| Database Design | Next |
+| Implementation | Not started (blocked on Database → API → UI Design System) |
 
 ## Who It Serves
 
@@ -35,20 +36,20 @@ apps/
   customer-portal/
   supplier-portal/
 services/
-  auth-service/
-  sales-service/
-  inventory-service/
-  sync-service/
-  reporting-service/
-  notification-service/
+  api/                 # Modular NestJS monolith (v1)
+plugins/               # First-party industry plugins
 packages/
   ui/
   database/
   shared/
   types/
   utils/
+  sync-protocol/
+  plugin-sdk/
 docs/
 ```
+
+Logical service boundaries (auth, sales, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.
 
 ## Technology Stack (Target)
 

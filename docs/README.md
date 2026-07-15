@@ -9,8 +9,8 @@ Do not skip phases. Implementation of business modules begins only after Archite
 | Phase | Document | Status |
 | --- | --- | --- |
 | 1 | [Software Requirements Specification](./requirements/01-software-requirements-specification.md) | **Complete (v1.0.0)** |
-| 2 | System Architecture | Pending |
-| 3 | Database Design | Pending |
+| 2 | [System Architecture](./architecture/README.md) | **Complete (v1.0.0)** |
+| 3 | Database Design | Next |
 | 4 | API Design (OpenAPI) | Pending |
 | 5 | UI Design System | Pending |
 | 6 | Authentication | Pending |
