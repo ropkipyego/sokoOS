@@ -1,0 +1,317 @@
+openapi: 3.1.0
+info:
+  title: SokoOS Cloud API
+  version: 1.0.0
+  description: |
+    NestJS modular monolith REST API for SokoOS.
+    All business routes are under `/v1`. Health probes are unversioned.
+servers:
+  - url: http://localhost:3000
+    description: Local
+tags:
+  - name: Auth
+  - name: Sync
+  - name: Catalog
+  - name: Inventory
+  - name: Sales
+  - name: Reports
+  - name: Health
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: Process is alive
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe (DB)
+      security: []
+      responses:
+        "200":
+          description: Dependencies ready
+        "503":
+          description: Dependencies unavailable
+  /v1/auth/login:
+    post:
+      tags: [Auth]
+      summary: Email/password login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string }
+                deviceId: { type: string, format: uuid }
+                branchId: { type: string, format: uuid }
+                tenantSlug: { type: string }
+      responses:
+        "200":
+          description: Access + refresh tokens
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+                      expiresIn: { type: integer }
+                      permissions:
+                        type: array
+                        items: { type: string }
+        "401":
+          $ref: "#/components/responses/Error"
+  /v1/auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        "200":
+          description: New token pair
+  /v1/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Revoke refresh session
+      responses:
+        "200":
+          description: Logged out
+  /v1/auth/me:
+    get:
+      tags: [Auth]
+      summary: Current user profile
+      responses:
+        "200":
+          description: User, roles, permissions
+  /v1/auth/devices/register:
+    post:
+      tags: [Auth]
+      summary: Register POS/admin device
+      responses:
+        "200":
+          description: Device registered
+  /v1/products:
+    get:
+      tags: [Catalog]
+      summary: List products
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: cursor
+          schema: { type: string }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          description: Cursor page of products
+    post:
+      tags: [Catalog]
+      summary: Create product
+      responses:
+        "201":
+          description: Created
+  /v1/products/{id}:
+    get:
+      tags: [Catalog]
+      summary: Get product
+      parameters:
+        - $ref: "#/components/parameters/Id"
+      responses:
+        "200":
+          description: Product
+  /v1/stock/balances:
+    get:
+      tags: [Inventory]
+      summary: Stock balance projection
+      responses:
+        "200":
+          description: Balances
+  /v1/stock/movements:
+    get:
+      tags: [Inventory]
+      summary: Append-only movement history
+      responses:
+        "200":
+          description: Movements
+    post:
+      tags: [Inventory]
+      summary: Create adjustment/damage movement
+      responses:
+        "200":
+          description: Movement appended + balance updated
+  /v1/sales:
+    get:
+      tags: [Sales]
+      summary: List sales
+      responses:
+        "200":
+          description: Sales page
+    post:
+      tags: [Sales]
+      summary: Create sale (items + payments + stock in one txn)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [branchId, items, payments]
+              properties:
+                branchId: { type: string, format: uuid }
+                warehouseId: { type: string, format: uuid }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1 }
+                payments:
+                  type: array
+                  items:
+                    type: object
+                    required: [method, amountMinor]
+                    properties:
+                      method: { type: string }
+                      amountMinor: { type: integer }
+      responses:
+        "200":
+          description: Completed sale
+  /v1/sync/push:
+    post:
+      tags: [Sync]
+      summary: Push SyncEnvelope (idempotent by changeId)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SyncEnvelope"
+      responses:
+        "200":
+          description: Push ACK
+  /v1/sync/pull:
+    post:
+      tags: [Sync]
+      summary: Pull changes since serverSeq
+      responses:
+        "200":
+          description: Pull batch
+  /v1/sync/status:
+    get:
+      tags: [Sync]
+      summary: Device sync status
+      responses:
+        "200":
+          description: Status summary
+  /v1/reports/daily-summary:
+    get:
+      tags: [Reports]
+      summary: Daily sales/expense summary
+      parameters:
+        - in: query
+          name: date
+          schema: { type: string, format: date }
+        - in: query
+          name: branchId
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Summary
+  /v1/reports/low-stock:
+    get:
+      tags: [Reports]
+      summary: Low stock balances
+      responses:
+        "200":
+          description: Low stock rows
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    Error:
+      description: Standard error envelope
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: object
+                required: [code, message, requestId]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+                  requestId: { type: string }
+                  details:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        path: { type: string }
+                        message: { type: string }
+                        code: { type: string }
+  schemas:
+    SyncEnvelope:
+      type: object
+      required:
+        [envelopeId, deviceId, tenantId, producedAt, protocolVersion, changes]
+      properties:
+        envelopeId: { type: string, format: uuid }
+        deviceId: { type: string, format: uuid }
+        tenantId: { type: string, format: uuid }
+        branchId: { type: string, format: uuid }
+        producedAt: { type: string, format: date-time }
+        protocolVersion: { type: integer, enum: [1] }
+        changes:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              [changeId, entityType, entityId, op, version, payload, occurredAt, actorUserId]
+            properties:
+              changeId: { type: string, format: uuid }
+              entityType: { type: string }
+              entityId: { type: string, format: uuid }
+              op: { type: string, enum: [upsert, append, delete] }
+              version: { type: integer }
+              baseVersion: { type: integer }
+              payload: {}
+              occurredAt: { type: string, format: date-time }
+              actorUserId: { type: string, format: uuid }
+security:
+  - bearerAuth: []
