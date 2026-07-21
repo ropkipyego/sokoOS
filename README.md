@@ -10,8 +10,12 @@ SokoOS is a commercial-grade, multi-tenant commerce operating system for African
 | --- | --- |
 | Software Requirements Specification | Complete — [`docs/requirements/…`](./docs/requirements/01-software-requirements-specification.md) |
 | Architecture | Complete — [`docs/architecture/`](./docs/architecture/README.md) |
-| Database Design | Complete — [`docs/database/`](./docs/database/01-database-design.md) |
-| Platform foundation | In progress — pnpm + Turborepo packages under `packages/` |
+| Database Design | Complete — [`docs/database/`](./docs/database/01-database-design.md) + Prisma schemas in [`packages/database`](./packages/database) |
+| API Design | Complete — [`docs/api/`](./docs/api/README.md); NestJS service scaffold under `services/api` (in progress) |
+| UI Design System | Complete — [`docs/design-system/`](./docs/design-system/README.md) + tokens/components in [`packages/ui`](./packages/ui) |
+| Platform foundation | In progress — packages, admin dashboard, desktop POS |
+| Admin dashboard | Scaffolded — [`apps/admin-dashboard`](./apps/admin-dashboard) (Vite/React 19) |
+| Desktop POS | Scaffolded — [`apps/desktop-pos`](./apps/desktop-pos) (offline-first one-screen checkout) |
 
 ## Who It Serves
 
@@ -30,10 +34,10 @@ Retail shops, supermarket, restaurants, hardware stores, pharmacies, electronics
 
 ```
 apps/
-  admin-dashboard/     # Vite React 19 (scaffold later)
-  desktop-pos/         # Vite React + Electron-ready (scaffold later)
+  admin-dashboard/     # Vite React 19 admin console
+  desktop-pos/         # Vite React POS (Electron-ready stub)
 services/
-  api/                 # Modular NestJS monolith (scaffold later)
+  api/                 # Modular NestJS monolith
 plugins/               # First-party industry plugins
 packages/
   types/               # Zod schemas + shared domain types
@@ -42,7 +46,7 @@ packages/
   shared/              # Result, AppError, system roles
   plugin-sdk/          # PluginManifest + registration contracts
   database/            # Prisma (Postgres) + SQLite POS schema
-  ui/                  # Minimal design system (Button, Input, tokens)
+  ui/                  # Design system (Button, Input, tokens)
 docs/
 ```
 
@@ -53,6 +57,10 @@ pnpm install
 cp .env.example .env
 docker compose up -d postgres redis   # optional: --profile storage for MinIO
 pnpm build
+
+# Frontends
+pnpm --filter @sokoos/admin-dashboard dev   # http://localhost:5173
+pnpm --filter @sokoos/desktop-pos dev       # http://localhost:5174
 ```
 
 Logical service boundaries (auth, sales, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.

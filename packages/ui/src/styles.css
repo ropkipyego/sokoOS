@@ -1,17 +1,23 @@
-:root {
-  /* Brand — deep teal + warm stone (avoid purple/cream clichés) */
+:root,
+[data-theme="light"] {
+  /* Brand — deep teal + amber accent + warm stone */
   --soko-color-primary: #0b6e4f;
   --soko-color-primary-hover: #095c42;
   --soko-color-primary-muted: #d8efe6;
   --soko-color-on-primary: #ffffff;
+  --soko-color-accent: #c4a35a;
+  --soko-color-accent-muted: #c4a35a26;
 
   --soko-color-bg: #f3efe8;
   --soko-color-bg-elevated: #faf7f2;
-  --soko-color-surface: #ffffff;
+  --soko-color-surface: #fffbf7;
+  --soko-color-surface-muted: #e8e2d8;
   --soko-color-border: #d6d0c6;
   --soko-color-text: #1c1915;
   --soko-color-text-muted: #6b645a;
   --soko-color-danger: #b42318;
+  --soko-color-warning: #b45309;
+  --soko-color-success: #1b7f4e;
   --soko-color-focus: #0b6e4f;
 
   --soko-font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
@@ -19,12 +25,42 @@
 
   --soko-radius-sm: 6px;
   --soko-radius-md: 10px;
+  --soko-radius-lg: 12px;
   --soko-space-1: 0.25rem;
   --soko-space-2: 0.5rem;
   --soko-space-3: 0.75rem;
   --soko-space-4: 1rem;
   --soko-space-5: 1.5rem;
+  --soko-space-6: 2rem;
   --soko-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--soko-color-primary) 35%, transparent);
+  --soko-elevation-1: 0 1px 2px rgb(28 25 23 / 6%);
+  --soko-duration-fast: 120ms;
+  --soko-duration-base: 200ms;
+  --soko-easing: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+[data-theme="dark"],
+.dark {
+  --soko-color-primary: #1d9b6f;
+  --soko-color-primary-hover: #23b07f;
+  --soko-color-primary-muted: #1d9b6f33;
+  --soko-color-on-primary: #06261a;
+  --soko-color-accent: #d4b56a;
+  --soko-color-accent-muted: #d4b56a33;
+
+  --soko-color-bg: #121714;
+  --soko-color-bg-elevated: #1a211e;
+  --soko-color-surface: #1a211e;
+  --soko-color-surface-muted: #24302b;
+  --soko-color-border: #2f3d37;
+  --soko-color-text: #f5f5f4;
+  --soko-color-text-muted: #a8a29e;
+  --soko-color-danger: #f87171;
+  --soko-color-warning: #fbbf24;
+  --soko-color-success: #34d399;
+  --soko-color-focus: #1d9b6f;
+  --soko-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--soko-color-primary) 40%, transparent);
+  --soko-elevation-1: 0 1px 2px rgb(0 0 0 / 35%);
 }
 
 .soko-ui {
