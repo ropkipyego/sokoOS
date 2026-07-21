@@ -11,11 +11,14 @@ SokoOS is a commercial-grade, multi-tenant commerce operating system for African
 | Software Requirements Specification | Complete — [`docs/requirements/…`](./docs/requirements/01-software-requirements-specification.md) |
 | Architecture | Complete — [`docs/architecture/`](./docs/architecture/README.md) |
 | Database Design | Complete — [`docs/database/`](./docs/database/01-database-design.md) + Prisma schemas in [`packages/database`](./packages/database) |
-| API Design | Complete — [`docs/api/`](./docs/api/README.md); NestJS service scaffold under `services/api` (in progress) |
-| UI Design System | Complete — [`docs/design-system/`](./docs/design-system/README.md) + tokens/components in [`packages/ui`](./packages/ui) |
-| Platform foundation | In progress — packages, admin dashboard, desktop POS |
-| Admin dashboard | Scaffolded — [`apps/admin-dashboard`](./apps/admin-dashboard) (Vite/React 19) |
-| Desktop POS | Scaffolded — [`apps/desktop-pos`](./apps/desktop-pos) (offline-first one-screen checkout) |
+| API Design | Complete — [`docs/api/`](./docs/api/README.md); NestJS API under [`services/api`](./services/api) |
+| UI Design System | Complete — [`docs/design-system/`](./docs/design-system/README.md) + [`packages/ui`](./packages/ui) |
+| Platform / business modules | Auth → Notifications implemented in API; Returns included |
+| Plugins | SDK contracts + [`plugins/pharmacy`](./plugins/pharmacy) stub |
+| AI | Deferred — [`docs/ai/01-ai-roadmap.md`](./docs/ai/01-ai-roadmap.md) |
+| Deployment / Testing docs | Complete — [`docs/deployment/`](./docs/deployment/01-deployment.md), [`docs/testing/`](./docs/testing/01-testing-strategy.md) |
+| Admin dashboard | Scaffolded — [`apps/admin-dashboard`](./apps/admin-dashboard) |
+| Desktop POS | Scaffolded — [`apps/desktop-pos`](./apps/desktop-pos) |
 
 ## Who It Serves
 
@@ -38,7 +41,8 @@ apps/
   desktop-pos/         # Vite React POS (Electron-ready stub)
 services/
   api/                 # Modular NestJS monolith
-plugins/               # First-party industry plugins
+plugins/
+  pharmacy/            # @sokoos/plugin-pharmacy stub
 packages/
   types/               # Zod schemas + shared domain types
   sync-protocol/       # Envelope helpers, conflict codes, versioning
@@ -50,20 +54,32 @@ packages/
 docs/
 ```
 
-### Quick start
+## Quick start
 
 ```bash
 pnpm install
 cp .env.example .env
-docker compose up -d postgres redis   # optional: --profile storage for MinIO
-pnpm build
 
-# Frontends
-pnpm --filter @sokoos/admin-dashboard dev   # http://localhost:5173
-pnpm --filter @sokoos/desktop-pos dev       # http://localhost:5174
+# Data plane
+docker compose up -d postgres redis
+# optional: docker compose --profile storage up -d minio
+# optional API container: docker compose --profile api up -d --build api
+
+pnpm build
+pnpm --filter @sokoos/database db:push
+pnpm --filter @sokoos/api seed
+
+# API
+pnpm --filter @sokoos/api start:dev          # http://localhost:3000
+
+# Admin + POS
+pnpm --filter @sokoos/admin-dashboard dev    # http://localhost:5173
+pnpm --filter @sokoos/desktop-pos dev        # http://localhost:5174
 ```
 
-Logical service boundaries (auth, sales, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.
+Demo login (after seed): `demo@sokoos.local` / `Demo123!` (tenant `demo`).
+
+Logical service boundaries (auth, sales, returns, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.
 
 ## Technology Stack (Target)
 

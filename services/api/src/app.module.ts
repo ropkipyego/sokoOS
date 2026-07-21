@@ -17,6 +17,7 @@ import { RolesModule } from "./roles/roles.module";
 import { CatalogModule } from "./catalog/catalog.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { SalesModule } from "./sales/sales.module";
+import { ReturnsModule } from "./returns/returns.module";
 import { CustomersModule } from "./customers/customers.module";
 import { SuppliersModule } from "./suppliers/suppliers.module";
 import { PurchasesModule } from "./purchases/purchases.module";
@@ -52,6 +53,7 @@ import { HealthModule } from "./health/health.module";
     CatalogModule,
     InventoryModule,
     SalesModule,
+    ReturnsModule,
     CustomersModule,
     SuppliersModule,
     PurchasesModule,

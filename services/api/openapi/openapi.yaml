@@ -201,6 +201,58 @@ paths:
       responses:
         "200":
           description: Completed sale
+  /v1/returns:
+    get:
+      tags: [Sales]
+      summary: List returns
+      parameters:
+        - in: query
+          name: saleId
+          schema: { type: string, format: uuid }
+        - in: query
+          name: branchId
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Returns page
+    post:
+      tags: [Sales]
+      summary: Create return (partial lines + compensating stock movements)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [saleId, items]
+              properties:
+                saleId: { type: string, format: uuid }
+                warehouseId: { type: string, format: uuid }
+                reason: { type: string }
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1 }
+                      unitPriceMinor: { type: integer }
+      responses:
+        "200":
+          description: Completed return
+  /v1/returns/{id}:
+    get:
+      tags: [Sales]
+      summary: Get return by id
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Return detail
   /v1/sync/push:
     post:
       tags: [Sync]

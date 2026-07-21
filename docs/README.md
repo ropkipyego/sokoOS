@@ -13,25 +13,25 @@ Do not skip phases. Implementation of business modules begins only after Archite
 | 3 | [Database Design](./database/README.md) | **Complete (v1.0.0)** |
 | 4 | [API Design (OpenAPI)](./api/README.md) | **Complete (v1.0.0)** |
 | 5 | [UI Design System](./design-system/README.md) | **Complete (v1.0.0)** |
-| 6 | Authentication | Pending |
-| 7 | Tenant Management | Pending |
-| 8 | Branch Management | Pending |
-| 9 | Permissions (RBAC) | Pending |
-| 10 | Synchronization Engine | Pending |
-| 11 | Inventory | Pending |
-| 12 | Products | Pending |
-| 13 | Sales | Pending |
-| 14 | Customers | Pending |
-| 15 | Suppliers | Pending |
-| 16 | Purchases | Pending |
-| 17 | Expenses | Pending |
-| 18 | Reports | Pending |
-| 19 | Notifications | Pending |
-| 20 | Plugins | Pending |
-| 21 | AI | Pending |
-| 22 | Deployment | Pending |
-| 23 | Testing | Pending |
-| 24 | Module Documentation | Pending |
+| 6 | Authentication | **Implemented (API)** — [modules/auth.md](./modules/auth.md) |
+| 7 | Tenant Management | **Implemented (API)** |
+| 8 | Branch Management | **Implemented (API)** |
+| 9 | Permissions (RBAC) | **Implemented (API)** |
+| 10 | Synchronization Engine | **Implemented (API)** — [modules/sync.md](./modules/sync.md) |
+| 11 | Inventory | **Implemented (API)** — [modules/inventory.md](./modules/inventory.md) |
+| 12 | Products | **Implemented (API catalog)** |
+| 13 | Sales (+ Returns) | **Implemented (API)** — [modules/sales.md](./modules/sales.md) |
+| 14 | Customers | **Implemented (API)** |
+| 15 | Suppliers | **Implemented (API)** |
+| 16 | Purchases | **Implemented (API)** |
+| 17 | Expenses | **Implemented (API)** |
+| 18 | Reports | **Implemented (API)** |
+| 19 | Notifications | **Implemented (API)** |
+| 20 | Plugins | **Contracts + pharmacy stub** — `@sokoos/plugin-sdk`, [`plugins/pharmacy`](../plugins/pharmacy) |
+| 21 | AI | **Deferred** — [ai/01-ai-roadmap.md](./ai/01-ai-roadmap.md) |
+| 22 | Deployment | **Complete** — [deployment/01-deployment.md](./deployment/01-deployment.md) |
+| 23 | Testing | **Complete** — [testing/01-testing-strategy.md](./testing/01-testing-strategy.md) |
+| 24 | Module Documentation | **In progress** — auth, sync, inventory, sales (+ returns) |
 
 ## Folder Layout
 
@@ -42,7 +42,10 @@ docs/
   database/         # PostgreSQL + SQLite design
   api/              # OpenAPI-oriented API design
   design-system/    # UI tokens, POS/admin patterns
-  modules/          # Per-module documentation (after implementation phases)
+  modules/          # Per-module documentation
+  deployment/       # Local/prod runbooks
+  testing/          # QA strategy mapped to REQ-QA-*
+  ai/               # Deferred AI roadmap
 ```
 
 ## Module Documentation Standard

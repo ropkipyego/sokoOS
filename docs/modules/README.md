@@ -1,6 +1,13 @@
 # Module Documentation
 
-Per-module documentation will be added as each module completes its design and implementation phases.
+Per-module docs for implemented (or stubbed) capabilities. Each file follows the nine-section standard.
+
+| Module | Doc | API status |
+| --- | --- | --- |
+| Auth | [auth.md](./auth.md) | Implemented |
+| Sync | [sync.md](./sync.md) | Implemented |
+| Inventory | [inventory.md](./inventory.md) | Implemented |
+| Sales (+ Returns) | [sales.md](./sales.md) | Implemented |
 
 Required sections for every module:
 
