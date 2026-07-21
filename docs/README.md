@@ -10,9 +10,9 @@ Do not skip phases. Implementation of business modules begins only after Archite
 | --- | --- | --- |
 | 1 | [Software Requirements Specification](./requirements/01-software-requirements-specification.md) | **Complete (v1.0.0)** |
 | 2 | [System Architecture](./architecture/README.md) | **Complete (v1.0.0)** |
-| 3 | Database Design | Next |
-| 4 | API Design (OpenAPI) | Pending |
-| 5 | UI Design System | Pending |
+| 3 | [Database Design](./database/README.md) | **Complete (v1.0.0)** |
+| 4 | [API Design (OpenAPI)](./api/README.md) | **Complete (v1.0.0)** |
+| 5 | [UI Design System](./design-system/README.md) | **Complete (v1.0.0)** |
 | 6 | Authentication | Pending |
 | 7 | Tenant Management | Pending |
 | 8 | Branch Management | Pending |
@@ -39,6 +39,9 @@ Do not skip phases. Implementation of business modules begins only after Archite
 docs/
   requirements/     # SRS and requirement addenda
   architecture/     # ADRs and system architecture
+  database/         # PostgreSQL + SQLite design
+  api/              # OpenAPI-oriented API design
+  design-system/    # UI tokens, POS/admin patterns
   modules/          # Per-module documentation (after implementation phases)
 ```
 
