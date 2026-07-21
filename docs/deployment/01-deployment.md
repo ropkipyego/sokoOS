@@ -28,7 +28,13 @@ docker compose --profile api up -d --build api
 | API | `http://localhost:3000` | `api` |
 | MinIO | `localhost:9000` (console `:9001`) | `storage` |
 
-Health (API): `GET /health/live`, `GET /health/ready`.
+Health (API): `GET /health/live`, `GET /health/ready` (body includes `{ postgres, redis }` — Postgres required for 200; Redis optional).
+
+### Redis, BullMQ, and WebSockets
+
+- **Redis** — used by BullMQ and reported on `/health/ready` as `redis: boolean`. Local demo works without Redis: omit `REDIS_URL` or leave Redis down (ready stays 200 if Postgres is up).
+- **BullMQ** — registered only when `REDIS_URL` is set. Queues: `notifications` (create Notification rows), `sync-fanout` (post-sync placeholder). Sync/sales never hard-fail if Redis is unavailable; enqueue is best-effort after successful sync push.
+- **WebSockets** — `SyncGateway` namespace `/sync` (Socket.IO). Authenticate with JWT in handshake `auth.token`; clients join a `tenant:{tenantId}` room and receive `sync.available` after accepted sync pushes.
 
 ### Build API image alone
 
@@ -50,7 +56,7 @@ Copy `.env.example` → `.env`. Critical keys:
 | Variable | Purpose |
 | --- | --- |
 | `DATABASE_URL` | Prisma Postgres connection string |
-| `REDIS_URL` | Cache / future BullMQ |
+| `REDIS_URL` | Redis for BullMQ queues + health probe (optional; omit to disable workers) |
 | `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | ≥32 chars each |
 | `JWT_ACCESS_TTL` / `JWT_REFRESH_TTL` | e.g. `15m`, `30d` |
 | `API_HOST` / `API_PORT` | Bind address (default `0.0.0.0:3000`) |

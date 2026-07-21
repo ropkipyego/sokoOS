@@ -27,6 +27,8 @@ import { ReportsModule } from "./reports/reports.module";
 import { NotificationsModule } from "./notifications/notifications.module";
 import { AuditModule } from "./audit/audit.module";
 import { HealthModule } from "./health/health.module";
+import { RedisModule } from "./redis/redis.module";
+import { QueuesModule } from "./queues/queues.module";
 
 @Module({
   imports: [
@@ -45,6 +47,8 @@ import { HealthModule } from "./health/health.module";
       ],
     }),
     PrismaModule,
+    RedisModule,
+    QueuesModule.forRoot(),
     AuthModule,
     TenantsModule,
     BranchesModule,

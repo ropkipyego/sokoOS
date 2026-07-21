@@ -17,8 +17,10 @@ export class HealthController {
   @Get("ready")
   async ready(@Res() res: Response) {
     const body = await this.health.ready();
-    const status =
-      body.status === "ok" ? HttpStatus.OK : HttpStatus.SERVICE_UNAVAILABLE;
+    // Postgres required; Redis optional (reported via body.redis)
+    const status = body.postgres
+      ? HttpStatus.OK
+      : HttpStatus.SERVICE_UNAVAILABLE;
     return res.status(status).json(body);
   }
 }

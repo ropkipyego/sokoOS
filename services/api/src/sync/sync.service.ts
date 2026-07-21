@@ -2,6 +2,7 @@ import {
   Injectable,
   ForbiddenException,
   UnprocessableEntityException,
+  Optional,
 } from "@nestjs/common";
 import { createHash } from "node:crypto";
 import {
@@ -19,6 +20,7 @@ import { SalesService } from "../sales/sales.service";
 import { CatalogService } from "../catalog/catalog.service";
 import { InventoryService } from "../inventory/inventory.service";
 import { RolesService } from "../roles/roles.service";
+import { SyncFanoutPublisher } from "./sync-fanout.publisher";
 
 export type IdempotentPushResult = {
   accepted: boolean;
@@ -64,6 +66,7 @@ export class SyncService {
     private readonly catalog: CatalogService,
     private readonly inventory: InventoryService,
     private readonly roles: RolesService,
+    @Optional() private readonly fanout?: SyncFanoutPublisher,
   ) {}
 
   async push(
@@ -142,6 +145,18 @@ export class SyncService {
       where: { tenantId },
     });
     const authzVersion = await this.roles.getAuthzVersion(tenantId);
+
+    if (acceptedChangeIds.length > 0) {
+      // Best-effort: never fail the push if Redis/WS are down
+      void this.fanout
+        ?.afterPushAccepted({
+          tenantId,
+          acceptedChangeIds,
+          serverSeq,
+          deviceId: envelope.deviceId,
+        })
+        .catch(() => undefined);
+    }
 
     return {
       acceptedChangeIds,
