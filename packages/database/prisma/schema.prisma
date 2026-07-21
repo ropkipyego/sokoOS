@@ -1,0 +1,720 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// Platform & Tenancy
+// ---------------------------------------------------------------------------
+
+model Tenant {
+  id         String   @id @default(uuid())
+  name       String
+  slug       String   @unique
+  status     String   @default("active")
+  currency   String   @db.Char(3)
+  timezone   String
+  locale     String
+  taxConfig  Json     @default("{}") @map("tax_config")
+  settings   Json     @default("{}")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  branches       Branch[]
+  devices        Device[]
+  users          User[]
+  roles          Role[]
+  userRoles      UserRole[]
+  authzVersions  AuthzVersion[]
+  categories     Category[]
+  brands         Brand[]
+  units          Unit[]
+  products       Product[]
+  warehouses     Warehouse[]
+  stockMovements StockMovement[]
+  stockBalances  StockBalance[]
+  customers      Customer[]
+  sales          Sale[]
+  saleItems      SaleItem[]
+  salePayments   SalePayment[]
+  returns        Return[]
+  returnItems    ReturnItem[]
+  suppliers      Supplier[]
+  purchases      Purchase[]
+  purchaseItems  PurchaseItem[]
+  expenses       Expense[]
+  syncChanges    SyncChange[]
+  syncConflicts  SyncConflict[]
+  auditLogs      AuditLog[]
+  notifications  Notification[]
+
+  @@map("tenants")
+}
+
+model Branch {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  name      String
+  code      String
+  address   Json?
+  status    String    @default("active")
+  settings  Json      @default("{}")
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  devices        Device[]
+  userRoles      UserRole[]
+  warehouses     Warehouse[]
+  stockMovements StockMovement[]
+  sales          Sale[]
+  returns        Return[]
+  purchases      Purchase[]
+  expenses       Expense[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("branches")
+}
+
+model Device {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  branchId   String    @map("branch_id")
+  name       String
+  status     String    @default("active")
+  lastSeenAt DateTime? @map("last_seen_at")
+  syncCursor Json?     @map("sync_cursor")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  refreshTokens  RefreshToken[]
+  stockMovements StockMovement[]
+  sales          Sale[]
+  syncChanges    SyncChange[]
+  syncConflicts  SyncConflict[]
+  auditLogs      AuditLog[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("devices")
+}
+
+// ---------------------------------------------------------------------------
+// Identity & Access
+// ---------------------------------------------------------------------------
+
+model User {
+  id           String   @id @default(uuid())
+  tenantId     String?  @map("tenant_id")
+  email        String
+  phone        String?
+  name         String
+  passwordHash String   @map("password_hash")
+  status       String   @default("active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id])
+  userRoles     UserRole[]
+  refreshTokens RefreshToken[]
+  sales         Sale[]         @relation("SaleCashier")
+  auditLogs     AuditLog[]
+  notifications Notification[]
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@index([email])
+  @@map("users")
+}
+
+model Role {
+  id        String   @id @default(uuid())
+  tenantId  String?  @map("tenant_id")
+  key       String
+  name      String
+  isSystem  Boolean  @default(false) @map("is_system")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant          Tenant?          @relation(fields: [tenantId], references: [id])
+  rolePermissions RolePermission[]
+  userRoles       UserRole[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  description String?
+  category    String?
+  pluginId    String? @map("plugin_id")
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String @map("role_id")
+  permissionId String @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  userId    String   @map("user_id")
+  roleId    String   @map("role_id")
+  branchId  String?  @map("branch_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role   Role    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@unique([tenantId, userId, roleId, branchId])
+  @@map("user_roles")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  deviceId  String?   @map("device_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("refresh_tokens")
+}
+
+model AuthzVersion {
+  tenantId  String   @id @map("tenant_id")
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@map("authz_versions")
+}
+
+// ---------------------------------------------------------------------------
+// Catalog
+// ---------------------------------------------------------------------------
+
+model Category {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  parentId  String?   @map("parent_id")
+  name      String
+  sortOrder Int       @default(0) @map("sort_order")
+  status    String    @default("active")
+  version   Int       @default(1)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  createdBy String?   @map("created_by")
+  updatedBy String?   @map("updated_by")
+  archivedAt DateTime? @map("archived_at")
+
+  tenant   Tenant     @relation(fields: [tenantId], references: [id])
+  parent   Category?  @relation("CategoryTree", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryTree")
+  products Product[]
+
+  @@index([tenantId])
+  @@map("categories")
+}
+
+model Brand {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  name       String
+  status     String    @default("active")
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  createdBy  String?   @map("created_by")
+  updatedBy  String?   @map("updated_by")
+  archivedAt DateTime? @map("archived_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  products Product[]
+
+  @@index([tenantId])
+  @@unique([tenantId, name])
+  @@map("brands")
+}
+
+model Unit {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  name         String
+  abbreviation String
+  status       String    @default("active")
+  version      Int       @default(1)
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  createdBy    String?   @map("created_by")
+  updatedBy    String?   @map("updated_by")
+  archivedAt   DateTime? @map("archived_at")
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  products Product[]
+
+  @@index([tenantId])
+  @@unique([tenantId, abbreviation])
+  @@map("units")
+}
+
+model Product {
+  id             String    @id @default(uuid())
+  tenantId       String    @map("tenant_id")
+  sku            String
+  barcode        String?
+  name           String
+  description    String?
+  categoryId     String?   @map("category_id")
+  brandId        String?   @map("brand_id")
+  unitId         String?   @map("unit_id")
+  priceMinor     Int       @map("price_minor")
+  costMinor      Int?      @map("cost_minor")
+  taxRateBps     Int       @default(0) @map("tax_rate_bps")
+  trackInventory Boolean   @default(true) @map("track_inventory")
+  status         String    @default("active")
+  extensions     Json      @default("{}")
+  version        Int       @default(1)
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  createdBy      String?   @map("created_by")
+  updatedBy      String?   @map("updated_by")
+  deviceId       String?   @map("device_id")
+  archivedAt     DateTime? @map("archived_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  category       Category?       @relation(fields: [categoryId], references: [id])
+  brand          Brand?          @relation(fields: [brandId], references: [id])
+  unit           Unit?           @relation(fields: [unitId], references: [id])
+  stockMovements StockMovement[]
+  stockBalances  StockBalance[]
+  saleItems      SaleItem[]
+  returnItems    ReturnItem[]
+  purchaseItems  PurchaseItem[]
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@index([tenantId, barcode])
+  @@map("products")
+}
+
+// ---------------------------------------------------------------------------
+// Inventory
+// ---------------------------------------------------------------------------
+
+model Warehouse {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  branchId   String    @map("branch_id")
+  name       String
+  isDefault  Boolean   @default(false) @map("is_default")
+  status     String    @default("active")
+  version    Int       @default(1)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  createdBy  String?   @map("created_by")
+  updatedBy  String?   @map("updated_by")
+  archivedAt DateTime? @map("archived_at")
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  branch         Branch          @relation(fields: [branchId], references: [id])
+  stockMovements StockMovement[]
+  stockBalances  StockBalance[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("warehouses")
+}
+
+model StockMovement {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  branchId      String   @map("branch_id")
+  warehouseId   String   @map("warehouse_id")
+  productId     String   @map("product_id")
+  type          String
+  quantityDelta Int      @map("quantity_delta")
+  unitCostMinor Int?     @map("unit_cost_minor")
+  referenceType String?  @map("reference_type")
+  referenceId   String?  @map("reference_id")
+  correlationId String?  @map("correlation_id")
+  reason        String?
+  deviceId      String?  @map("device_id")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  createdBy     String?  @map("created_by")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  branch    Branch    @relation(fields: [branchId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+  device    Device?   @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, productId, createdAt])
+  @@index([tenantId, warehouseId, productId])
+  @@map("stock_movements")
+}
+
+model StockBalance {
+  tenantId    String   @map("tenant_id")
+  warehouseId String   @map("warehouse_id")
+  productId   String   @map("product_id")
+  quantity    Int      @default(0)
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id])
+  product   Product   @relation(fields: [productId], references: [id])
+
+  @@id([tenantId, warehouseId, productId])
+  @@map("stock_balances")
+}
+
+// ---------------------------------------------------------------------------
+// Sales
+// ---------------------------------------------------------------------------
+
+model Customer {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  name       String
+  phone      String?
+  email      String?
+  status     String    @default("active")
+  version    Int       @default(1)
+  extensions Json      @default("{}")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  createdBy  String?   @map("created_by")
+  updatedBy  String?   @map("updated_by")
+  archivedAt DateTime? @map("archived_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  sales  Sale[]
+
+  @@index([tenantId])
+  @@index([tenantId, phone])
+  @@map("customers")
+}
+
+model Sale {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  branchId       String   @map("branch_id")
+  deviceId       String?  @map("device_id")
+  cashierUserId  String   @map("cashier_user_id")
+  customerId     String?  @map("customer_id")
+  status         String   @default("completed")
+  subtotalMinor  Int      @map("subtotal_minor")
+  taxMinor       Int      @map("tax_minor")
+  discountMinor  Int      @default(0) @map("discount_minor")
+  totalMinor     Int      @map("total_minor")
+  currency       String   @db.Char(3)
+  receiptNumber  String   @map("receipt_number")
+  occurredAt     DateTime @map("occurred_at")
+  version        Int      @default(1)
+  createdAt      DateTime @default(now()) @map("created_at")
+  createdBy      String?  @map("created_by")
+
+  tenant   Tenant        @relation(fields: [tenantId], references: [id])
+  branch   Branch        @relation(fields: [branchId], references: [id])
+  device   Device?       @relation(fields: [deviceId], references: [id])
+  cashier  User          @relation("SaleCashier", fields: [cashierUserId], references: [id])
+  customer Customer?     @relation(fields: [customerId], references: [id])
+  items    SaleItem[]
+  payments SalePayment[]
+  returns  Return[]
+
+  @@unique([tenantId, branchId, receiptNumber])
+  @@index([tenantId])
+  @@index([tenantId, occurredAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id             String @id @default(uuid())
+  saleId         String @map("sale_id")
+  tenantId       String @map("tenant_id")
+  productId      String @map("product_id")
+  nameSnapshot   String @map("name_snapshot")
+  skuSnapshot    String @map("sku_snapshot")
+  quantity       Int
+  unitPriceMinor Int    @map("unit_price_minor")
+  discountMinor  Int    @default(0) @map("discount_minor")
+  taxMinor       Int    @default(0) @map("tax_minor")
+  lineTotalMinor Int    @map("line_total_minor")
+  extensions     Json   @default("{}")
+
+  sale    Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@map("sale_items")
+}
+
+model SalePayment {
+  id          String   @id @default(uuid())
+  saleId      String   @map("sale_id")
+  tenantId    String   @map("tenant_id")
+  method      String
+  amountMinor Int      @map("amount_minor")
+  reference   String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@map("sale_payments")
+}
+
+model Return {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String   @map("branch_id")
+  saleId      String   @map("sale_id")
+  status      String   @default("completed")
+  totalMinor  Int      @map("total_minor")
+  reason      String?
+  occurredAt  DateTime @map("occurred_at")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  createdBy   String?  @map("created_by")
+
+  tenant Tenant       @relation(fields: [tenantId], references: [id])
+  branch Branch       @relation(fields: [branchId], references: [id])
+  sale   Sale         @relation(fields: [saleId], references: [id])
+  items  ReturnItem[]
+
+  @@index([tenantId])
+  @@index([saleId])
+  @@map("returns")
+}
+
+model ReturnItem {
+  id             String @id @default(uuid())
+  returnId       String @map("return_id")
+  tenantId       String @map("tenant_id")
+  productId      String @map("product_id")
+  quantity       Int
+  unitPriceMinor Int    @map("unit_price_minor")
+  lineTotalMinor Int    @map("line_total_minor")
+
+  return  Return  @relation(fields: [returnId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([returnId])
+  @@map("return_items")
+}
+
+// ---------------------------------------------------------------------------
+// Procurement & Expenses
+// ---------------------------------------------------------------------------
+
+model Supplier {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  name       String
+  phone      String?
+  email      String?
+  status     String    @default("active")
+  version    Int       @default(1)
+  extensions Json      @default("{}")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  createdBy  String?   @map("created_by")
+  updatedBy  String?   @map("updated_by")
+  archivedAt DateTime? @map("archived_at")
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id])
+  purchases Purchase[]
+
+  @@index([tenantId])
+  @@map("suppliers")
+}
+
+model Purchase {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  branchId      String    @map("branch_id")
+  supplierId    String?   @map("supplier_id")
+  status        String    @default("draft")
+  totalMinor    Int       @default(0) @map("total_minor")
+  currency      String    @db.Char(3)
+  reference     String?
+  receivedAt    DateTime? @map("received_at")
+  version       Int       @default(1)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  createdBy     String?   @map("created_by")
+  updatedBy     String?   @map("updated_by")
+
+  tenant   Tenant         @relation(fields: [tenantId], references: [id])
+  branch   Branch         @relation(fields: [branchId], references: [id])
+  supplier Supplier?      @relation(fields: [supplierId], references: [id])
+  items    PurchaseItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, branchId])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id             String @id @default(uuid())
+  purchaseId     String @map("purchase_id")
+  tenantId       String @map("tenant_id")
+  productId      String @map("product_id")
+  quantity       Int
+  unitCostMinor  Int    @map("unit_cost_minor")
+  lineTotalMinor Int    @map("line_total_minor")
+
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id])
+
+  @@index([tenantId])
+  @@index([purchaseId])
+  @@map("purchase_items")
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String   @map("branch_id")
+  category    String
+  amountMinor Int      @map("amount_minor")
+  currency    String   @db.Char(3)
+  notes       String?
+  occurredAt  DateTime @map("occurred_at")
+  version     Int      @default(1)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by")
+  updatedBy   String?  @map("updated_by")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, occurredAt])
+  @@map("expenses")
+}
+
+// ---------------------------------------------------------------------------
+// Sync & Audit
+// ---------------------------------------------------------------------------
+
+model SyncChange {
+  changeId   String   @id @map("change_id")
+  tenantId   String   @map("tenant_id")
+  deviceId   String   @map("device_id")
+  entityType String   @map("entity_type")
+  entityId   String   @map("entity_id")
+  version    Int
+  acceptedAt DateTime @default(now()) @map("accepted_at")
+  payloadHash String? @map("payload_hash")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, entityType, entityId])
+  @@map("sync_changes")
+}
+
+model SyncConflict {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  deviceId   String    @map("device_id")
+  entityType String    @map("entity_type")
+  entityId   String    @map("entity_id")
+  reason     String
+  payload    Json
+  createdAt  DateTime  @default(now()) @map("created_at")
+  resolvedAt DateTime? @map("resolved_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  device Device @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, resolvedAt])
+  @@map("sync_conflicts")
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  tenantId    String?  @map("tenant_id")
+  actorUserId String?  @map("actor_user_id")
+  deviceId    String?  @map("device_id")
+  action      String
+  entityType  String   @map("entity_type")
+  entityId    String?  @map("entity_id")
+  metadata    Json     @default("{}")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  actor  User?   @relation(fields: [actorUserId], references: [id])
+  device Device? @relation(fields: [deviceId], references: [id])
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@index([entityType, entityId])
+  @@map("audit_logs")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  tenantId  String    @map("tenant_id")
+  userId    String    @map("user_id")
+  type      String
+  body      String
+  readAt    DateTime? @map("read_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([userId, readAt])
+  @@map("notifications")
+}

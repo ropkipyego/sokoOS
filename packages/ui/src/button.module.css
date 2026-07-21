@@ -1,0 +1,81 @@
+.root {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--soko-space-2);
+  border: 1px solid transparent;
+  border-radius: var(--soko-radius-md);
+  font-family: var(--soko-font-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 120ms ease;
+}
+
+.root:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.root:focus-visible {
+  outline: none;
+  box-shadow: var(--soko-shadow-focus);
+}
+
+.root:not(:disabled):active {
+  transform: translateY(1px);
+}
+
+.sm {
+  min-height: 2rem;
+  padding: 0 var(--soko-space-3);
+  font-size: 0.875rem;
+}
+
+.md {
+  min-height: 2.5rem;
+  padding: 0 var(--soko-space-4);
+  font-size: 0.9375rem;
+}
+
+.lg {
+  min-height: 3rem;
+  padding: 0 var(--soko-space-5);
+  font-size: 1rem;
+}
+
+.primary {
+  background: var(--soko-color-primary);
+  color: var(--soko-color-on-primary);
+}
+
+.primary:not(:disabled):hover {
+  background: var(--soko-color-primary-hover);
+}
+
+.secondary {
+  background: var(--soko-color-surface);
+  color: var(--soko-color-text);
+  border-color: var(--soko-color-border);
+}
+
+.secondary:not(:disabled):hover {
+  background: var(--soko-color-bg-elevated);
+}
+
+.ghost {
+  background: transparent;
+  color: var(--soko-color-primary);
+}
+
+.ghost:not(:disabled):hover {
+  background: var(--soko-color-primary-muted);
+}
+
+.danger {
+  background: var(--soko-color-danger);
+  color: #fff;
+}

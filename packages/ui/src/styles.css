@@ -1,0 +1,44 @@
+:root {
+  /* Brand — deep teal + warm stone (avoid purple/cream clichés) */
+  --soko-color-primary: #0b6e4f;
+  --soko-color-primary-hover: #095c42;
+  --soko-color-primary-muted: #d8efe6;
+  --soko-color-on-primary: #ffffff;
+
+  --soko-color-bg: #f3efe8;
+  --soko-color-bg-elevated: #faf7f2;
+  --soko-color-surface: #ffffff;
+  --soko-color-border: #d6d0c6;
+  --soko-color-text: #1c1915;
+  --soko-color-text-muted: #6b645a;
+  --soko-color-danger: #b42318;
+  --soko-color-focus: #0b6e4f;
+
+  --soko-font-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+  --soko-font-body: "Source Sans 3", "Source Sans Pro", "Segoe UI", sans-serif;
+
+  --soko-radius-sm: 6px;
+  --soko-radius-md: 10px;
+  --soko-space-1: 0.25rem;
+  --soko-space-2: 0.5rem;
+  --soko-space-3: 0.75rem;
+  --soko-space-4: 1rem;
+  --soko-space-5: 1.5rem;
+  --soko-shadow-focus: 0 0 0 3px color-mix(in srgb, var(--soko-color-primary) 35%, transparent);
+}
+
+.soko-ui {
+  font-family: var(--soko-font-body);
+  color: var(--soko-color-text);
+  background: var(--soko-color-bg);
+  line-height: 1.45;
+}
+
+.soko-ui h1,
+.soko-ui h2,
+.soko-ui h3,
+.soko-display {
+  font-family: var(--soko-font-display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}

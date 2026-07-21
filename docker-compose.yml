@@ -1,0 +1,53 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: sokoos-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-sokoos}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-sokoos}
+      POSTGRES_DB: ${POSTGRES_DB:-sokoos}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - sokoos_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-sokoos} -d ${POSTGRES_DB:-sokoos}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: sokoos-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - sokoos_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    container_name: sokoos-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-sokoos}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-sokoossecret}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "9001:9001"
+    volumes:
+      - sokoos_minio_data:/data
+    profiles:
+      - storage
+
+volumes:
+  sokoos_pg_data:
+  sokoos_redis_data:
+  sokoos_minio_data:

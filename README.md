@@ -10,8 +10,8 @@ SokoOS is a commercial-grade, multi-tenant commerce operating system for African
 | --- | --- |
 | Software Requirements Specification | Complete — [`docs/requirements/…`](./docs/requirements/01-software-requirements-specification.md) |
 | Architecture | Complete — [`docs/architecture/`](./docs/architecture/README.md) |
-| Database Design | Next |
-| Implementation | Not started (blocked on Database → API → UI Design System) |
+| Database Design | Complete — [`docs/database/`](./docs/database/01-database-design.md) |
+| Platform foundation | In progress — pnpm + Turborepo packages under `packages/` |
 
 ## Who It Serves
 
@@ -26,27 +26,33 @@ Retail shops, supermarket, restaurants, hardware stores, pharmacies, electronics
 5. **Secure & Audited** — every action traceable  
 6. **Fast & Simple** — cashiers productive in under 30 minutes  
 
-## Planned Monorepo Layout
+## Monorepo Layout
 
 ```
 apps/
-  admin-dashboard/
-  desktop-pos/
-  mobile-app/
-  customer-portal/
-  supplier-portal/
+  admin-dashboard/     # Vite React 19 (scaffold later)
+  desktop-pos/         # Vite React + Electron-ready (scaffold later)
 services/
-  api/                 # Modular NestJS monolith (v1)
+  api/                 # Modular NestJS monolith (scaffold later)
 plugins/               # First-party industry plugins
 packages/
-  ui/
-  database/
-  shared/
-  types/
-  utils/
-  sync-protocol/
-  plugin-sdk/
+  types/               # Zod schemas + shared domain types
+  sync-protocol/       # Envelope helpers, conflict codes, versioning
+  utils/               # uuidv7, money (minor units), tenant asserts
+  shared/              # Result, AppError, system roles
+  plugin-sdk/          # PluginManifest + registration contracts
+  database/            # Prisma (Postgres) + SQLite POS schema
+  ui/                  # Minimal design system (Button, Input, tokens)
 docs/
+```
+
+### Quick start
+
+```bash
+pnpm install
+cp .env.example .env
+docker compose up -d postgres redis   # optional: --profile storage for MinIO
+pnpm build
 ```
 
 Logical service boundaries (auth, sales, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.

@@ -1,0 +1,2 @@
+-- Placeholder for versioned SQLite migrations applied on POS startup.
+-- Initial schema lives in ../schema.sql
