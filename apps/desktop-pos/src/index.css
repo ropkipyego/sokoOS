@@ -22,17 +22,86 @@ body {
   margin: 0;
   font-family: var(--soko-font-body);
   color: var(--soko-color-text);
-  background: var(--soko-color-bg);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, color-mix(in srgb, var(--soko-color-primary) 12%, transparent), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, color-mix(in srgb, var(--soko-color-accent) 10%, transparent), transparent 55%),
+    var(--soko-color-bg);
 }
 
 .font-display {
   font-family: var(--soko-font-display);
 }
 
+.pos-login {
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--soko-color-primary) 18%, transparent), transparent 42%),
+    var(--soko-color-bg);
+}
+
+.pos-login-card {
+  animation: card-rise 480ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes card-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.pos-header {
+  backdrop-filter: blur(8px);
+}
+
+.scanner-wedge {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+}
+
+.scan-toast {
+  position: fixed;
+  top: 4.5rem;
+  left: 50%;
+  z-index: 40;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: var(--soko-color-primary);
+  color: white;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  animation: toast-in 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--soko-color-primary) 35%, transparent);
+}
+
+@keyframes toast-in {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -8px) scale(0.96);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, 0) scale(1);
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 @keyframes cart-line-in {
   from {
     opacity: 0;
-    transform: translateX(8px);
+    transform: translateX(10px);
   }
   to {
     opacity: 1;
@@ -41,7 +110,7 @@ body {
 }
 
 .cart-line-enter {
-  animation: cart-line-in var(--soko-duration-base) var(--soko-easing);
+  animation: cart-line-in 220ms var(--soko-easing, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 @keyframes pay-pulse {
@@ -54,13 +123,40 @@ body {
 }
 
 .pay-success-pulse {
-  animation: pay-pulse 320ms cubic-bezier(0.16, 1, 0.3, 1);
+  animation: pay-pulse 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-card {
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.product-card:hover {
+  border-color: var(--soko-color-primary);
+  box-shadow: 0 8px 20px color-mix(in srgb, var(--soko-color-primary) 12%, transparent);
+  transform: translateY(-2px);
+}
+
+.product-card:active {
+  transform: translateY(0);
+}
+
+.table-chip {
+  transition: transform 150ms ease, background 150ms ease, border-color 150ms ease;
+}
+
+.floor-grid {
+  animation: card-rise 360ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .cart-line-enter,
-  .pay-success-pulse {
+  .pay-success-pulse,
+  .pos-login-card,
+  .scan-toast,
+  .product-card,
+  .floor-grid {
     animation: none;
+    transition: none;
   }
 }
 
@@ -71,4 +167,44 @@ body {
 
 .touch-btn:active:not(:disabled) {
   transform: translateY(1px);
+}
+
+.receipt-paper.thermal-80 {
+  width: 80mm;
+}
+.receipt-paper.thermal-58 {
+  width: 58mm;
+  font-size: 11px;
+}
+.receipt-paper.a4 {
+  width: 210mm;
+  min-height: 297mm;
+  padding: 24mm;
+}
+
+@media print {
+  @page {
+    margin: 0;
+  }
+  body * {
+    visibility: hidden;
+  }
+  .receipt-print,
+  .receipt-print * {
+    visibility: visible;
+  }
+  .receipt-paper {
+    position: absolute;
+    inset: 0;
+    box-shadow: none;
+  }
+  .receipt-paper.thermal-80 {
+    width: 80mm;
+  }
+  .receipt-paper.thermal-58 {
+    width: 58mm;
+  }
+  .receipt-paper.a4 {
+    width: 210mm;
+  }
 }

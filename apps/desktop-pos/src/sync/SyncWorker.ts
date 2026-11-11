@@ -1,6 +1,6 @@
 import type { LocalDb, OutboxRecord } from "../db";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/v1";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/v1";
 
 export type SyncStatus = "idle" | "syncing" | "offline" | "error" | "synced";
 
@@ -19,10 +19,15 @@ export class SyncWorker {
   private timer: ReturnType<typeof setInterval> | null = null;
   private readonly deviceId: string;
   private readonly db: LocalDb;
+  private accessToken: string | null;
 
-  constructor(db: LocalDb, options?: { deviceId?: string; intervalMs?: number }) {
+  constructor(
+    db: LocalDb,
+    options?: { deviceId?: string; intervalMs?: number; accessToken?: string | null },
+  ) {
     this.db = db;
     this.deviceId = options?.deviceId ?? "pos-demo-device";
+    this.accessToken = options?.accessToken ?? null;
     const intervalMs = options?.intervalMs ?? 8_000;
     if (typeof window !== "undefined") {
       window.addEventListener("online", () => {
@@ -34,8 +39,24 @@ export class SyncWorker {
     }
   }
 
+  setAccessToken(token: string | null) {
+    this.accessToken = token;
+  }
+
   getStatus(): SyncStatus {
     return this.status;
+  }
+
+  /** Pending outbox depth — connectivity ≠ successful sync. */
+  async getPendingCount(): Promise<number> {
+    const items = await this.db.listOutbox();
+    return items.length;
+  }
+
+  /** Pending outbox depth — connectivity ≠ successful sync. */
+  async getPendingCount(): Promise<number> {
+    const items = await this.db.listOutbox();
+    return items.length;
   }
 
   subscribe(listener: (status: SyncStatus) => void): () => void {
@@ -64,12 +85,14 @@ export class SyncWorker {
     this.setStatus("syncing");
     try {
       const payload: SyncPushPayload = { deviceId: this.deviceId, items };
+      const headers: Record<string, string> = {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      };
+      if (this.accessToken) headers.Authorization = `Bearer ${this.accessToken}`;
       const response = await fetch(`${API_URL}/sync/push`, {
         method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
+        headers,
         body: JSON.stringify(payload),
       });
 

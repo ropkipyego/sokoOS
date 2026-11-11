@@ -2,13 +2,18 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  UnprocessableEntityException,
 } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { MediaService } from "../media/media.service";
 import { decodeCursor, encodeCursor, paginateMeta } from "../common/pagination";
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly media: MediaService,
+  ) {}
 
   // --- Categories ---
   async listCategories(tenantId: string) {
@@ -140,9 +145,10 @@ export class CatalogService {
       barcode?: string;
       categoryId?: string;
       status?: string;
+      featured?: boolean;
     } = {},
   ) {
-    const limit = Math.min(opts.limit ?? 50, 200);
+    const limit = Math.min(opts.limit ?? 50, 500);
     const cursor = decodeCursor<{ id: string }>(opts.cursor);
 
     const rows = await this.prisma.product.findMany({
@@ -154,6 +160,7 @@ export class CatalogService {
         ...(opts.barcode ? { barcode: opts.barcode } : {}),
         ...(opts.categoryId ? { categoryId: opts.categoryId } : {}),
         ...(opts.status ? { status: opts.status } : {}),
+        ...(opts.featured ? { featured: true } : {}),
         ...(opts.q
           ? {
               OR: [
@@ -164,6 +171,7 @@ export class CatalogService {
             }
           : {}),
       },
+      include: { category: { select: { id: true, name: true } } },
       orderBy: { id: "asc" },
       take: limit + 1,
     });
@@ -206,9 +214,18 @@ export class CatalogService {
       costMinor?: number;
       taxRateBps?: number;
       trackInventory?: boolean;
+      itemType?: string;
+      featured?: boolean;
+      minStockQty?: number;
+      imageUrl?: string;
+      thumbnailUrl?: string;
     },
     userId?: string,
   ) {
+    const itemType = input.itemType ?? "stock";
+    const trackInventory =
+      input.trackInventory ??
+      !["prepared", "service", "accommodation", "non_stock"].includes(itemType);
     try {
       return await this.prisma.product.create({
         data: {
@@ -224,7 +241,12 @@ export class CatalogService {
           priceMinor: input.priceMinor,
           costMinor: input.costMinor,
           taxRateBps: input.taxRateBps ?? 0,
-          trackInventory: input.trackInventory ?? true,
+          trackInventory,
+          itemType,
+          featured: input.featured ?? false,
+          minStockQty: input.minStockQty ?? 0,
+          imageUrl: input.imageUrl,
+          thumbnailUrl: input.thumbnailUrl ?? input.imageUrl,
           createdBy: userId,
           updatedBy: userId,
         },
@@ -251,6 +273,9 @@ export class CatalogService {
       costMinor: number | null;
       taxRateBps: number;
       trackInventory: boolean;
+      itemType: string;
+      featured: boolean;
+      minStockQty: number;
       status: string;
       version: number;
     }>,
@@ -272,6 +297,165 @@ export class CatalogService {
         version: { increment: 1 },
       },
     });
+  }
+
+  async setImage(
+    tenantId: string,
+    id: string,
+    file: { mimetype: string; size: number; buffer: Buffer; originalname: string },
+    userId?: string,
+  ) {
+    const product = await this.getProduct(tenantId, id);
+    await this.media.removeFile(product.imageUrl);
+    const saved = await this.media.saveProductImage(tenantId, id, file);
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        imageUrl: saved.imageUrl,
+        thumbnailUrl: saved.thumbnailUrl,
+        updatedBy: userId,
+        version: { increment: 1 },
+      },
+    });
+  }
+
+  async clearImage(tenantId: string, id: string, userId?: string) {
+    const product = await this.getProduct(tenantId, id);
+    await this.media.removeFile(product.imageUrl);
+    return this.prisma.product.update({
+      where: { id },
+      data: {
+        imageUrl: null,
+        thumbnailUrl: null,
+        updatedBy: userId,
+        version: { increment: 1 },
+      },
+    });
+  }
+
+  /**
+   * Money columns:
+   * - `price` / `cost` = major units (e.g. 1250.00 KES) → converted to minor
+   * - `priceMinor` / `costMinor` = integer cents/cents already
+   * Images:
+   * - optional `imageUrl` public https URL (no binary in CSV)
+   * - local files: upload after create / per-product in the UI
+   */
+  async importProducts(
+    tenantId: string,
+    rows: Array<Record<string, string>>,
+    userId?: string,
+  ) {
+    const accepted: string[] = [];
+    const rejected: Array<{ row: number; sku?: string; error: string }> = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i] ?? {};
+      const sku = (row.sku ?? row.SKU ?? "").trim();
+      const name = (row.name ?? row.Name ?? "").trim();
+      const priceMinor = this.parseMoneyCell(row, ["priceMinor", "price", "selling_price", "sellingPrice"]);
+      if (!sku || !name) {
+        rejected.push({ row: i + 1, sku, error: "sku and name are required" });
+        continue;
+      }
+      if (priceMinor === null || priceMinor < 0) {
+        rejected.push({
+          row: i + 1,
+          sku,
+          error: "invalid price — use price (e.g. 1250.00) or priceMinor (e.g. 125000)",
+        });
+        continue;
+      }
+      const barcode = (row.barcode ?? row.Barcode ?? "").trim() || undefined;
+      const costMinor = this.parseMoneyCell(row, ["costMinor", "cost", "buying_price", "buyingPrice"]);
+      const imageUrl = (row.imageUrl ?? row.image_url ?? row.ImageUrl ?? "").trim() || undefined;
+      if (imageUrl && !/^https?:\/\//i.test(imageUrl)) {
+        rejected.push({ row: i + 1, sku, error: "imageUrl must be an http(s) URL" });
+        continue;
+      }
+      try {
+        const existing = await this.prisma.product.findFirst({ where: { tenantId, sku } });
+        if (existing) {
+          rejected.push({ row: i + 1, sku, error: "duplicate SKU" });
+          continue;
+        }
+        await this.createProduct(
+          tenantId,
+          {
+            sku,
+            name,
+            barcode,
+            priceMinor,
+            costMinor: costMinor ?? undefined,
+            minStockQty: row.minStockQty || row.min_stock ? Number(row.minStockQty ?? row.min_stock) : 0,
+            featured: ["1", "true", "yes"].includes((row.featured ?? "").toLowerCase()),
+            imageUrl,
+            thumbnailUrl: imageUrl,
+          },
+          userId,
+        );
+        accepted.push(sku);
+      } catch (err) {
+        rejected.push({
+          row: i + 1,
+          sku,
+          error: err instanceof Error ? err.message : "import failed",
+        });
+      }
+    }
+
+    if (!rows.length) {
+      throw new UnprocessableEntityException({
+        code: "VALIDATION_FAILED",
+        message: "No rows to import",
+      });
+    }
+
+    return {
+      accepted: accepted.length,
+      rejected: rejected.length,
+      errors: rejected,
+    };
+  }
+
+  async exportCsv(tenantId: string) {
+    const products = await this.prisma.product.findMany({
+      where: { tenantId, archivedAt: null },
+      orderBy: { sku: "asc" },
+    });
+    const header = "sku,name,barcode,price,cost,minStockQty,featured,imageUrl,status";
+    const lines = products.map((p) =>
+      [
+        this.csvEscape(p.sku),
+        this.csvEscape(p.name),
+        p.barcode ?? "",
+        (p.priceMinor / 100).toFixed(2),
+        p.costMinor != null ? (p.costMinor / 100).toFixed(2) : "",
+        p.minStockQty,
+        p.featured ? "true" : "false",
+        p.imageUrl ?? "",
+        p.status,
+      ].join(","),
+    );
+    return `${header}\n${lines.join("\n")}\n`;
+  }
+
+  private parseMoneyCell(row: Record<string, string>, keys: string[]): number | null {
+    for (const key of keys) {
+      const raw = row[key];
+      if (raw === undefined || raw === "") continue;
+      const n = Number(String(raw).replace(/,/g, "").trim());
+      if (!Number.isFinite(n) || n < 0) return null;
+      // priceMinor / costMinor stay as integer minor units; other keys are major units
+      if (key.toLowerCase().includes("minor")) return Math.round(n);
+      return Math.round(n * 100);
+    }
+    return null;
+  }
+
+  private csvEscape(value: string) {
+    if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+    return value;
   }
 
   async archiveProduct(tenantId: string, id: string, userId?: string) {

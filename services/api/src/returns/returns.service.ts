@@ -62,8 +62,12 @@ export class ReturnsService {
           : {}),
         ...(cursor ? { id: { gt: cursor.id } } : {}),
       },
-      include: { items: true },
-      orderBy: { id: "asc" },
+      include: {
+        items: { include: { product: true } },
+        sale: { include: { cashier: true, customer: true } },
+        branch: true,
+      },
+      orderBy: { occurredAt: "desc" },
       take: limit + 1,
     });
 
@@ -83,7 +87,11 @@ export class ReturnsService {
   async get(tenantId: string, id: string) {
     const row = await this.prisma.return.findFirst({
       where: { id, tenantId },
-      include: { items: true },
+      include: {
+        items: { include: { product: true } },
+        sale: { include: { items: true, cashier: true, customer: true } },
+        branch: true,
+      },
     });
     if (!row) {
       throw new NotFoundException({ code: "NOT_FOUND", message: "Return not found" });

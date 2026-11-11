@@ -30,7 +30,8 @@ export class ExpensesService {
           : {}),
         ...(cursor ? { id: { gt: cursor.id } } : {}),
       },
-      orderBy: { id: "asc" },
+      include: { branch: true },
+      orderBy: { occurredAt: "desc" },
       take: limit + 1,
     });
     const hasMore = rows.length > limit;
@@ -57,6 +58,8 @@ export class ExpensesService {
       currency?: string;
       notes?: string;
       occurredAt?: string;
+      paymentMethod?: string;
+      approvalStatus?: string;
     },
     userId?: string,
   ) {
@@ -69,6 +72,8 @@ export class ExpensesService {
         amountMinor: input.amountMinor,
         currency: input.currency ?? tenant.currency,
         notes: input.notes,
+        paymentMethod: input.paymentMethod,
+        approvalStatus: input.approvalStatus ?? "recorded",
         occurredAt: input.occurredAt ? new Date(input.occurredAt) : new Date(),
         createdBy: userId,
         updatedBy: userId,
@@ -83,6 +88,9 @@ export class ExpensesService {
       category?: string;
       amountMinor?: number;
       notes?: string | null;
+      paymentMethod?: string;
+      approvalStatus?: string;
+      receiptUrl?: string | null;
     },
     userId?: string,
   ) {
@@ -90,6 +98,11 @@ export class ExpensesService {
     return this.prisma.expense.update({
       where: { id },
       data: { ...input, updatedBy: userId, version: { increment: 1 } },
+      include: { branch: true },
     });
+  }
+
+  async approve(tenantId: string, id: string, userId?: string) {
+    return this.update(tenantId, id, { approvalStatus: "approved" }, userId);
   }
 }

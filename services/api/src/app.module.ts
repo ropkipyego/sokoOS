@@ -29,6 +29,24 @@ import { AuditModule } from "./audit/audit.module";
 import { HealthModule } from "./health/health.module";
 import { RedisModule } from "./redis/redis.module";
 import { QueuesModule } from "./queues/queues.module";
+import { MediaModule } from "./media/media.module";
+import { DeliveriesModule } from "./deliveries/deliveries.module";
+import { MessagesModule } from "./messages/messages.module";
+import { DiningModule } from "./dining/dining.module";
+import { PlatformModule } from "./platform/platform.module";
+import { DepartmentsModule } from "./departments/departments.module";
+import { RestaurantModule } from "./restaurant/restaurant.module";
+import { HotelModule } from "./hotel/hotel.module";
+import { IndustryModule } from "./industry/industry.module";
+import { TenantConfigModule } from "./config/tenant-config.module";
+import { IntegrationsModule } from "./integrations/integrations.module";
+import { HardwareModule } from "./hardware/hardware.module";
+import { ShiftsModule } from "./shifts/shifts.module";
+import { DomainsModule } from "./domains/domains.module";
+import { LifecycleModule } from "./lifecycle/lifecycle.module";
+import { EmailModule } from "./email/email.module";
+import { BillingModule } from "./billing/billing.module";
+import { SupportModule } from "./support/support.module";
 
 @Module({
   imports: [
@@ -67,6 +85,24 @@ import { QueuesModule } from "./queues/queues.module";
     NotificationsModule,
     AuditModule,
     HealthModule,
+    MediaModule,
+    DeliveriesModule,
+    MessagesModule,
+    DiningModule,
+    PlatformModule,
+    DepartmentsModule,
+    RestaurantModule,
+    HotelModule,
+    IndustryModule,
+    TenantConfigModule,
+    IntegrationsModule,
+    HardwareModule,
+    ShiftsModule,
+    DomainsModule,
+    LifecycleModule,
+    EmailModule,
+    BillingModule,
+    SupportModule,
   ],
   providers: [
     TenantContext,

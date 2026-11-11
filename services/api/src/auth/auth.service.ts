@@ -12,6 +12,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import type { JwtPayload } from "./jwt.strategy";
 import { RolesService } from "../roles/roles.service";
+import { DomainsService } from "../domains/domains.service";
 
 export type LoginInput = {
   email: string;
@@ -19,6 +20,8 @@ export type LoginInput = {
   deviceId?: string;
   branchId?: string;
   tenantSlug?: string;
+  /** Request Host / X-SokoOS-Host — binds session to resolved tenant when present */
+  host?: string;
 };
 
 @Injectable()
@@ -28,17 +31,57 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
     private readonly roles: RolesService,
+    private readonly domains: DomainsService,
   ) {}
 
   async login(input: LoginInput) {
     const email = input.email.trim().toLowerCase();
+
+    let hostBoundSlug: string | undefined;
+    let hostIsPlatform = false;
+    if (input.host) {
+      const resolved = await this.domains.resolveHost(input.host);
+      if (resolved.outcome === "platform") {
+        hostIsPlatform = true;
+      } else if (
+        resolved.outcome === "tenant" ||
+        resolved.outcome === "suspended" ||
+        resolved.outcome === "inactive"
+      ) {
+        hostBoundSlug = resolved.tenantSlug;
+        if (resolved.outcome === "suspended" || resolved.outcome === "inactive") {
+          throw new ForbiddenException({
+            code: "TENANT_INACTIVE",
+            message: resolved.message,
+          });
+        }
+      } else if (resolved.outcome === "unknown" || resolved.outcome === "unverified_custom") {
+        throw new ForbiddenException({
+          code: "UNKNOWN_TENANT_HOST",
+          message: "This hostname is not mapped to an active business",
+        });
+      }
+      // public / invalid_host: no binding — login may use tenantSlug as before
+    }
+
+    const effectiveSlug = hostBoundSlug ?? input.tenantSlug;
+
+    if (hostBoundSlug && input.tenantSlug && input.tenantSlug !== hostBoundSlug) {
+      throw new ForbiddenException({
+        code: "TENANT_HOST_MISMATCH",
+        message: "Login tenant does not match this hostname",
+      });
+    }
+
     const users = await this.prisma.user.findMany({
       where: {
         email,
         status: "active",
-        ...(input.tenantSlug
-          ? { tenant: { slug: input.tenantSlug } }
-          : {}),
+        ...(hostIsPlatform
+          ? { tenantId: null }
+          : effectiveSlug
+            ? { tenant: { slug: effectiveSlug } }
+            : {}),
       },
       include: { tenant: true },
       take: 5,
@@ -51,9 +94,12 @@ export class AuthService {
       });
     }
 
-    // Prefer exact tenant match when multiple; otherwise first with valid password
+    // Prefer exact tenant match when multiple; prefer platform (null tenant) when no slug
     let matched = null as (typeof users)[number] | null;
-    for (const u of users) {
+    const ordered = !effectiveSlug && !hostIsPlatform
+      ? [...users].sort((a, b) => Number(Boolean(a.tenantId)) - Number(Boolean(b.tenantId)))
+      : users;
+    for (const u of ordered) {
       const ok = await bcrypt.compare(input.password, u.passwordHash);
       if (ok) {
         matched = u;
@@ -64,6 +110,13 @@ export class AuthService {
       throw new UnauthorizedException({
         code: "UNAUTHORIZED",
         message: "Invalid email or password",
+      });
+    }
+
+    if (hostIsPlatform && matched.tenantId) {
+      throw new ForbiddenException({
+        code: "PLATFORM_HOST_REQUIRED",
+        message: "Use your business hostname to sign in to a tenant account",
       });
     }
 
@@ -268,8 +321,13 @@ export class AuthService {
             name: user.tenant.name,
             slug: user.tenant.slug,
             currency: user.tenant.currency,
+            settings: user.tenant.settings ?? {},
+            businessTypes: user.tenant.businessTypes ?? ["retail"],
+            modulesEnabled: user.tenant.modulesEnabled ?? { retail: true },
+            status: user.tenant.status,
           }
         : null,
+      isPlatformUser: !user.tenantId,
       roles: user.userRoles.map((ur) => ({
         id: ur.id,
         roleKey: ur.role.key,
@@ -279,6 +337,14 @@ export class AuthService {
       authzVersion,
       permissions,
     };
+  }
+
+  async listDevices(tenantId: string) {
+    return this.prisma.device.findMany({
+      where: { tenantId },
+      include: { branch: { select: { id: true, name: true, code: true } } },
+      orderBy: { createdAt: "desc" },
+    });
   }
 
   async registerDevice(

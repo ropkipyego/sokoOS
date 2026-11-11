@@ -10,6 +10,9 @@ System design baselines for SokoOS. These documents gate the **Database** phase.
 | SOKO-ARCH-002 | [Synchronization Engine](./02-sync-engine.md) | Baseline v1.0.0 |
 | SOKO-ARCH-003 | [Plugin System](./03-plugin-system.md) | Baseline v1.0.0 |
 | SOKO-ARCH-004 | [Security Architecture](./04-security-architecture.md) | Baseline v1.0.0 |
+| SOKO-ARCH-UPG-001 | [Upgrade plan](./sokoos-upgrade-plan.md) | In progress |
+| SOKO-ARCH-FLOW-001 | [Data flow](./sokoos-data-flow.md) | In progress |
+| SOKO-SAAS-ARCH-001 | [SaaS target architecture](./SOKOOS-SAAS-ARCHITECTURE.md) | Active |
 
 ## Architecture Decision Records
 

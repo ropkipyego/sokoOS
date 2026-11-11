@@ -257,11 +257,11 @@ async function main() {
   }
 
   const samples = [
-    { sku: "SUGAR-1KG", name: "Sugar 1kg", priceMinor: 25000, costMinor: 18000 },
-    { sku: "RICE-2KG", name: "Rice 2kg", priceMinor: 35000, costMinor: 28000 },
-    { sku: "COOKING-OIL-1L", name: "Cooking Oil 1L", priceMinor: 42000, costMinor: 35000 },
-    { sku: "SOAP-BAR", name: "Bar Soap", priceMinor: 8000, costMinor: 5000 },
-    { sku: "MAIZE-FLOUR-2KG", name: "Maize Flour 2kg", priceMinor: 22000, costMinor: 16000 },
+    { sku: "SUGAR-1KG", name: "Sugar 1kg", priceMinor: 25000, costMinor: 18000, barcode: "6001100123456", featured: true, minStockQty: 10 },
+    { sku: "RICE-2KG", name: "Rice 2kg", priceMinor: 35000, costMinor: 28000, barcode: "6001100123457", featured: true, minStockQty: 8 },
+    { sku: "COOKING-OIL-1L", name: "Cooking Oil 1L", priceMinor: 42000, costMinor: 35000, barcode: "6001100123458", featured: true, minStockQty: 6 },
+    { sku: "SOAP-BAR", name: "Bar Soap", priceMinor: 8000, costMinor: 5000, barcode: "6001100123459", featured: false, minStockQty: 12 },
+    { sku: "MAIZE-FLOUR-2KG", name: "Maize Flour 2kg", priceMinor: 22000, costMinor: 16000, barcode: "6001100123460", featured: false, minStockQty: 10 },
   ];
 
   for (const sample of samples) {
@@ -274,12 +274,24 @@ async function main() {
           tenantId: tenant.id,
           sku: sample.sku,
           name: sample.name,
+          barcode: sample.barcode,
+          featured: sample.featured,
+          minStockQty: sample.minStockQty,
           priceMinor: sample.priceMinor,
           costMinor: sample.costMinor,
           categoryId: category.id,
           unitId: unit.id,
           trackInventory: true,
           status: "active",
+        },
+      });
+    } else {
+      product = await prisma.product.update({
+        where: { id: product.id },
+        data: {
+          barcode: product.barcode ?? sample.barcode,
+          featured: sample.featured,
+          minStockQty: sample.minStockQty,
         },
       });
     }
@@ -302,6 +314,67 @@ async function main() {
     });
   }
 
+  // Platform operator (tenantId null) — never shares tenant data
+  const platformRole = await ensureRoleWithPermissions(
+    null,
+    SystemRole.PlatformOwner,
+    "Platform Owner",
+    CORE_PERMISSION_KEYS.filter((k) => k.startsWith("platform.")),
+  );
+  const platformHash = await bcrypt.hash("Platform123!", 12);
+  let platformUser = await prisma.user.findFirst({
+    where: { email: "platform@sokoos.local", tenantId: null },
+  });
+  if (!platformUser) {
+    platformUser = await prisma.user.create({
+      data: {
+        tenantId: null,
+        email: "platform@sokoos.local",
+        name: "Platform Operator",
+        passwordHash: platformHash,
+        status: "active",
+      },
+    });
+  } else {
+    await prisma.user.update({
+      where: { id: platformUser.id },
+      data: { passwordHash: platformHash },
+    });
+  }
+  // Platform userRole needs a tenantId in schema — use a sentinel approach:
+  // UserRole.tenantId is required. Bind using first tenant id for RBAC row only;
+  // JWT still has tenantId=null from user record. Prefer dedicated platform binding:
+  const platformBinding = await prisma.userRole.findFirst({
+    where: { userId: platformUser.id, roleId: platformRole.id },
+  });
+  if (!platformBinding) {
+    await prisma.userRole.create({
+      data: {
+        tenantId: tenant.id,
+        userId: platformUser.id,
+        roleId: platformRole.id,
+        branchId: null,
+      },
+    });
+  }
+
+  const baseDomain = process.env.SOKOOS_BASE_DOMAIN ?? "sokoos.com";
+  const demoHost = `${tenant.slug}.${baseDomain}`;
+  await prisma.tenantDomain.upsert({
+    where: { hostname: demoHost },
+    create: {
+      tenantId: tenant.id,
+      hostname: demoHost,
+      kind: "subdomain",
+      status: "active",
+      isPrimary: true,
+      verifiedAt: new Date(),
+      tlsStatus: "unknown",
+    },
+    update: { status: "active", isPrimary: true },
+  });
+  console.log(`Primary domain: ${demoHost}`);
+
   console.log("Seed complete.");
   console.log({
     tenant: tenant.slug,
@@ -310,6 +383,10 @@ async function main() {
     password: "Demo123!",
     warehouse: warehouse.name,
     products: samples.length,
+    platformEmail: "platform@sokoos.local",
+    platformPassword: "Platform123!",
+    platformNote: "Leave tenant blank on login for platform console",
+    domain: demoHost,
   });
 }
 

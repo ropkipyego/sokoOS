@@ -22,8 +22,18 @@ export class TenantsService {
       currency?: string;
       taxConfig?: object;
       settings?: object;
+      businessTypes?: unknown;
+      modulesEnabled?: unknown;
+      legalName?: string;
+      email?: string;
+      phone?: string;
     },
   ) {
+    const existing = await this.getCurrent(tenantId);
+    const mergedSettings =
+      input.settings && typeof existing.settings === "object" && existing.settings
+        ? { ...(existing.settings as Record<string, unknown>), ...(input.settings as Record<string, unknown>) }
+        : input.settings;
     return this.prisma.tenant.update({
       where: { id: tenantId },
       data: {
@@ -32,7 +42,12 @@ export class TenantsService {
         locale: input.locale,
         currency: input.currency,
         taxConfig: input.taxConfig,
-        settings: input.settings,
+        settings: mergedSettings,
+        businessTypes: input.businessTypes as object | undefined,
+        modulesEnabled: input.modulesEnabled as object | undefined,
+        legalName: input.legalName,
+        email: input.email,
+        phone: input.phone,
       },
     });
   }

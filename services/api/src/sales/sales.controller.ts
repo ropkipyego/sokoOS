@@ -36,6 +36,9 @@ class SalePaymentDto {
   @IsString() method!: string;
   @IsInt() @Min(1) amountMinor!: number;
   @IsOptional() @IsString() reference?: string;
+  @IsOptional() @IsInt() tenderedMinor?: number;
+  @IsOptional() @IsInt() changeMinor?: number;
+  @IsOptional() @IsString() status?: string;
 }
 
 class CreateSaleDto {
@@ -47,7 +50,12 @@ class CreateSaleDto {
   @IsOptional() @IsString() receiptNumber?: string;
   @IsOptional() @IsString() occurredAt?: string;
   @IsOptional() @IsInt() discountMinor?: number;
+  @IsOptional() @IsInt() deliveryFeeMinor?: number;
   @IsOptional() @IsString() currency?: string;
+  @IsOptional() @IsString() orderType?: string;
+  @IsOptional() @IsString() tableCode?: string;
+  @IsOptional() @IsUUID() departmentId?: string;
+  @IsOptional() @IsUUID() waiterUserId?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => SaleItemDto)
   items!: SaleItemDto[];
   @IsArray() @ValidateNested({ each: true }) @Type(() => SalePaymentDto)
@@ -66,6 +74,7 @@ export class SalesController {
     @Query()
     query: {
       branchId?: string;
+      departmentId?: string;
       limit?: string;
       cursor?: string;
       from?: string;
@@ -74,6 +83,7 @@ export class SalesController {
   ) {
     return this.sales.list(user.tenantId!, {
       branchId: query.branchId,
+      departmentId: query.departmentId,
       limit: query.limit ? Number(query.limit) : undefined,
       cursor: query.cursor,
       from: query.from,

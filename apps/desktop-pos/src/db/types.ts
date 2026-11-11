@@ -5,6 +5,9 @@ export type ProductRecord = {
   category: string;
   priceCents: number;
   stock: number;
+  barcode?: string | null;
+  imageUrl?: string | null;
+  featured?: boolean;
 };
 
 export type SaleLineRecord = {
@@ -27,6 +30,12 @@ export type SaleRecord = {
   lines: SaleLineRecord[];
   createdAt: string;
   synced: boolean;
+  cashTenderedCents?: number;
+  changeCents?: number;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  orderType?: string;
+  tableCode?: string | null;
 };
 
 export type StockMovementRecord = {
@@ -48,7 +57,7 @@ export type OutboxRecord = {
   lastError?: string;
 };
 
-export type PaymentTender = "cash" | "mpesa" | "card";
+export type PaymentTender = "cash" | "mpesa" | "card" | "bank" | "credit";
 
 export type CompleteSaleInput = {
   branchId: string;

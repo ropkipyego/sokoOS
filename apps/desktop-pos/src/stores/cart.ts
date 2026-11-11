@@ -12,13 +12,15 @@ export type CartLine = {
 type CartState = {
   lines: CartLine[];
   tender: PaymentTender;
+  cashTenderedCents: number;
   lastSale: SaleRecord | null;
   paySuccessPulse: boolean;
-  addProduct: (product: ProductRecord) => void;
-  setQty: (productId: string, qty: number) => void;
+  addProduct: (product: ProductRecord, maxStock?: number) => void;
+  setQty: (productId: string, qty: number, maxStock?: number) => void;
   removeLine: (productId: string) => void;
   clear: () => void;
   setTender: (tender: PaymentTender) => void;
+  setCashTendered: (cents: number) => void;
   setLastSale: (sale: SaleRecord | null) => void;
   triggerPaySuccess: () => void;
 };
@@ -26,15 +28,18 @@ type CartState = {
 export const useCartStore = create<CartState>((set, get) => ({
   lines: [],
   tender: "cash",
+  cashTenderedCents: 0,
   lastSale: null,
   paySuccessPulse: false,
 
-  addProduct: (product) => {
+  addProduct: (product, maxStock) => {
     const existing = get().lines.find((line) => line.productId === product.id);
+    const nextQty = (existing?.qty ?? 0) + 1;
+    if (typeof maxStock === "number" && maxStock >= 0 && nextQty > maxStock) return;
     if (existing) {
       set({
         lines: get().lines.map((line) =>
-          line.productId === product.id ? { ...line, qty: line.qty + 1 } : line,
+          line.productId === product.id ? { ...line, qty: nextQty } : line,
         ),
       });
       return;
@@ -53,13 +58,14 @@ export const useCartStore = create<CartState>((set, get) => ({
     });
   },
 
-  setQty: (productId, qty) => {
+  setQty: (productId, qty, maxStock) => {
     if (qty <= 0) {
       get().removeLine(productId);
       return;
     }
+    const capped = typeof maxStock === "number" && maxStock >= 0 ? Math.min(qty, maxStock) : qty;
     set({
-      lines: get().lines.map((line) => (line.productId === productId ? { ...line, qty } : line)),
+      lines: get().lines.map((line) => (line.productId === productId ? { ...line, qty: capped } : line)),
     });
   },
 
@@ -67,15 +73,16 @@ export const useCartStore = create<CartState>((set, get) => ({
     set({ lines: get().lines.filter((line) => line.productId !== productId) });
   },
 
-  clear: () => set({ lines: [] }),
+  clear: () => set({ lines: [], cashTenderedCents: 0, tender: "cash" }),
 
   setTender: (tender) => set({ tender }),
+  setCashTendered: (cents) => set({ cashTenderedCents: cents }),
 
   setLastSale: (sale) => set({ lastSale: sale }),
 
   triggerPaySuccess: () => {
     set({ paySuccessPulse: true });
-    window.setTimeout(() => set({ paySuccessPulse: false }), 320);
+    window.setTimeout(() => set({ paySuccessPulse: false }), 420);
   },
 }));
 

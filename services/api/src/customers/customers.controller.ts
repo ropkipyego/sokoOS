@@ -11,6 +11,7 @@ class CreateCustomerDto {
   @IsString() @MinLength(1) name!: string;
   @IsOptional() @IsString() phone?: string;
   @IsOptional() @IsEmail() email?: string;
+  @IsOptional() address?: unknown;
 }
 
 @Controller("customers")
@@ -19,7 +20,7 @@ export class CustomersController {
   constructor(private readonly customers: CustomersService) {}
 
   @Get()
-  @RequirePermissions("sales.read")
+  @RequirePermissions("sales.read", "customers.read")
   async list(
     @CurrentUser() user: AuthUser,
     @Query() query: { limit?: string; cursor?: string; q?: string },

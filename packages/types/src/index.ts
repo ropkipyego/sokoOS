@@ -63,3 +63,17 @@ export {
   isCorePermissionKey,
   type PermissionKey,
 } from "./permissions.js";
+
+export {
+  BUSINESS_TYPES,
+  MODULE_KEYS,
+  BusinessTypeSchema,
+  ModuleKeySchema,
+  TenantProfileSchema,
+  defaultModulesForTypes,
+  isModuleEnabled,
+  type BusinessType,
+  type ModuleKey,
+  type ModulesEnabled,
+  type TenantProfile,
+} from "./business-profile.js";

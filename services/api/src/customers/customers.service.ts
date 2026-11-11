@@ -44,7 +44,7 @@ export class CustomersService {
 
   async create(
     tenantId: string,
-    input: { name: string; phone?: string; email?: string },
+    input: { name: string; phone?: string; email?: string; address?: unknown },
     userId?: string,
   ) {
     return this.prisma.customer.create({
@@ -53,6 +53,7 @@ export class CustomersService {
         name: input.name,
         phone: input.phone,
         email: input.email,
+        address: input.address as object | undefined,
         createdBy: userId,
         updatedBy: userId,
       },

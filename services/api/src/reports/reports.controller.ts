@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from "@nestjs/common";
+import { Controller, Get, Header, Query, UseGuards } from "@nestjs/common";
 import { ReportsService } from "./reports.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -15,11 +15,29 @@ export class ReportsController {
   @RequirePermissions("reports.read")
   async dailySummary(
     @CurrentUser() user: AuthUser,
-    @Query() query: { date?: string; branchId?: string },
+    @Query() query: { date?: string; branchId?: string; departmentId?: string },
   ) {
     return {
       data: await this.reports.dailySummary(user.tenantId!, query),
     };
+  }
+
+  @Get("department-sales")
+  @RequirePermissions("reports.read")
+  async departmentSales(
+    @CurrentUser() user: AuthUser,
+    @Query() query: { from?: string; to?: string; branchId?: string },
+  ) {
+    return { data: await this.reports.departmentSales(user.tenantId!, query) };
+  }
+
+  @Get("finance")
+  @RequirePermissions("reports.read")
+  async finance(
+    @CurrentUser() user: AuthUser,
+    @Query() query: { from?: string; to?: string; branchId?: string; departmentId?: string },
+  ) {
+    return { data: await this.reports.financeSummary(user.tenantId!, query) };
   }
 
   @Get("low-stock")
@@ -45,5 +63,24 @@ export class ReportsController {
     @Query() query: { from?: string; to?: string; branchId?: string },
   ) {
     return { data: await this.reports.salesReport(user.tenantId!, query) };
+  }
+
+  @Get("dashboard")
+  @RequirePermissions("reports.read")
+  async dashboard(
+    @CurrentUser() user: AuthUser,
+    @Query() query: { from?: string; to?: string; branchId?: string },
+  ) {
+    return { data: await this.reports.dashboard(user.tenantId!, query) };
+  }
+
+  @Get("export.csv")
+  @RequirePermissions("reports.export")
+  @Header("Content-Type", "text/csv")
+  async exportCsv(
+    @CurrentUser() user: AuthUser,
+    @Query() query: { from?: string; to?: string; branchId?: string },
+  ) {
+    return this.reports.exportSalesCsv(user.tenantId!, query);
   }
 }

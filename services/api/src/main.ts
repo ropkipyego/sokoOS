@@ -17,7 +17,29 @@ async function bootstrap() {
     .filter(Boolean);
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => {
+      if (!origin) return cb(null, true);
+      if (corsOrigins.includes(origin)) return cb(null, true);
+      if (/^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+)(:\d+)?$/.test(origin)) {
+        return cb(null, true);
+      }
+      // Cloudflare quick tunnels for remote demos
+      if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
+        return cb(null, true);
+      }
+      // Managed / custom tenant hosts (production + local *.localhost)
+      const baseDomain = (config.get<string>("SOKOOS_BASE_DOMAIN") ?? "sokoos.com").replace(
+        /\./g,
+        "\\.",
+      );
+      if (
+        new RegExp(`^https?:\\/\\/([a-z0-9-]+\\.)?${baseDomain}(:\\d+)?$`, "i").test(origin) ||
+        /^https?:\/\/[a-z0-9-]+\.localhost(:\d+)?$/i.test(origin)
+      ) {
+        return cb(null, true);
+      }
+      return cb(null, false);
+    },
     credentials: true,
   });
 

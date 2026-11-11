@@ -12,17 +12,25 @@ datasource db {
 // ---------------------------------------------------------------------------
 
 model Tenant {
-  id         String   @id @default(uuid())
-  name       String
-  slug       String   @unique
-  status     String   @default("active")
-  currency   String   @db.Char(3)
-  timezone   String
-  locale     String
-  taxConfig  Json     @default("{}") @map("tax_config")
-  settings   Json     @default("{}")
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id               String   @id @default(uuid())
+  name             String
+  slug             String   @unique
+  status           String   @default("active")
+  currency         String   @db.Char(3)
+  timezone         String
+  locale           String
+  taxConfig        Json     @default("{}") @map("tax_config")
+  settings         Json     @default("{}")
+  /// Industry profiles selected at onboarding (string[])
+  businessTypes    Json     @default("[\"retail\"]") @map("business_types")
+  /// Feature packs { retail: true, hotel: false, ... }
+  modulesEnabled   Json     @default("{\"retail\":true}") @map("modules_enabled")
+  onboardingStatus String   @default("complete") @map("onboarding_status") // draft | complete
+  legalName        String?  @map("legal_name")
+  email            String?
+  phone            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   branches       Branch[]
   devices        Device[]
@@ -51,8 +59,197 @@ model Tenant {
   syncConflicts  SyncConflict[]
   auditLogs      AuditLog[]
   notifications  Notification[]
+  deliveries     Delivery[]
+  announcements  Announcement[]
+  diningTables   DiningTable[]
+  departments    Department[]
+  onboardingDrafts OnboardingDraft[]
+  kitchenTickets KitchenTicket[]
+  roomTypes      RoomType[]
+  rooms          Room[]
+  reservations   Reservation[]
+  stays          Stay[]
+  folios         Folio[]
+  productBatches ProductBatch[]
+  prescriptions  Prescription[]
+  priceLists     PriceList[]
+  serviceJobs    ServiceJob[]
+  configSettings ConfigSetting[]
+  cashierShifts  CashierShift[]
+  productSerials ProductSerial[]
+  domains        TenantDomain[]
+  domainEvents   TenantDomainEvent[]
+  registrationRequests RegistrationRequest[]
+  invitations    TenantInvitation[]
+  emailMessages  EmailMessage[]
 
   @@map("tenants")
+}
+
+/// Durable email outbox (SaaS-03). Provider acceptance ≠ delivered.
+model EmailMessage {
+  id              String    @id @default(uuid())
+  tenantId        String?   @map("tenant_id")
+  /// Template key e.g. registration.received
+  templateKey     String    @map("template_key")
+  toEmail         String    @map("to_email")
+  toName          String?   @map("to_name")
+  subject         String
+  bodyText        String    @map("body_text")
+  bodyHtml        String?   @map("body_html")
+  /// queued | processing | sent | delivered | bounced | failed | retried | suppressed
+  status          String    @default("queued")
+  provider        String    @default("dev")
+  providerMessageId String? @map("provider_message_id")
+  idempotencyKey  String?   @unique @map("idempotency_key")
+  attemptCount    Int       @default(0) @map("attempt_count")
+  maxAttempts     Int       @default(5) @map("max_attempts")
+  lastError       String?   @map("last_error")
+  metadata        Json      @default("{}")
+  queuedAt        DateTime  @default(now()) @map("queued_at")
+  sentAt          DateTime? @map("sent_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+
+  @@index([status, queuedAt])
+  @@index([tenantId, createdAt])
+  @@index([templateKey, createdAt])
+  @@map("email_messages")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("password_reset_tokens")
+}
+
+/// Verified hostname → tenant mapping. Hostname is never authorization by itself.
+model TenantDomain {
+  id                     String    @id @default(uuid())
+  tenantId               String    @map("tenant_id")
+  /// Fully-qualified hostname, lowercase (e.g. demo.sokoos.com or custom.example.com)
+  hostname               String    @unique
+  /// subdomain | custom
+  kind                   String    @default("subdomain")
+  /// pending | verified | active | suspended | removed
+  status                 String    @default("pending")
+  isPrimary              Boolean   @default(false) @map("is_primary")
+  verifiedAt             DateTime? @map("verified_at")
+  /// Hash only — never store raw verification tokens
+  verificationTokenHash  String?   @map("verification_token_hash")
+  /// unknown | pending | provisioned | failed — evidence-based; never fake success
+  tlsStatus              String    @default("unknown") @map("tls_status")
+  dnsVerifiedAt          DateTime? @map("dns_verified_at")
+  notes                  String?
+  createdAt              DateTime  @default(now()) @map("created_at")
+  updatedAt              DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@map("tenant_domains")
+}
+
+model TenantDomainEvent {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  domainId  String?  @map("domain_id")
+  action    String
+  actorId   String?  @map("actor_id")
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, createdAt])
+  @@map("tenant_domain_events")
+}
+
+/// Self-registration queue (SaaS-02). Not an active tenant until approved + provisioned.
+model RegistrationRequest {
+  id                 String    @id @default(uuid())
+  businessName       String    @map("business_name")
+  legalName          String?   @map("legal_name")
+  contactName        String    @map("contact_name")
+  email              String
+  phone              String?
+  country            String    @default("KE")
+  industry           String?
+  businessSize       String?   @map("business_size")
+  requestedModules   Json      @default("[]") @map("requested_modules")
+  preferredSlug      String    @map("preferred_slug")
+  /// registration_pending | awaiting_approval | approved | rejected | info_requested | provisioned | cancelled
+  status             String    @default("registration_pending")
+  emailVerifiedAt    DateTime? @map("email_verified_at")
+  emailVerifyHash    String?   @map("email_verify_hash")
+  reviewNotes        String?   @map("review_notes")
+  reviewedByUserId   String?   @map("reviewed_by_user_id")
+  reviewedAt         DateTime? @map("reviewed_at")
+  resultingTenantId  String?   @map("resulting_tenant_id")
+  idempotencyKey     String?   @unique @map("idempotency_key")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  resultingTenant Tenant? @relation(fields: [resultingTenantId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([preferredSlug])
+  @@index([email])
+  @@map("registration_requests")
+}
+
+/// Secure one-time invitations (SaaS-03). Token stored hashed only.
+model TenantInvitation {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  email           String
+  name            String?
+  roleKey         String    @default("owner") @map("role_key")
+  /// pending | accepted | revoked | expired
+  status          String    @default("pending")
+  tokenHash       String    @map("token_hash")
+  expiresAt       DateTime  @map("expires_at")
+  acceptedAt      DateTime? @map("accepted_at")
+  revokedAt       DateTime? @map("revoked_at")
+  invitedByUserId String?   @map("invited_by_user_id")
+  resultingUserId String?   @map("resulting_user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
+  @@index([email, status])
+  @@map("tenant_invitations")
+}
+
+/// Resumable platform onboarding wizard state (platform-scoped until activated)
+model OnboardingDraft {
+  id                String    @id @default(uuid())
+  createdByUserId   String    @map("created_by_user_id")
+  step              Int       @default(1)
+  status            String    @default("draft") // draft | completed | abandoned
+  payload           Json      @default("{}")
+  resultingTenantId String?   @map("resulting_tenant_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+
+  resultingTenant Tenant? @relation(fields: [resultingTenantId], references: [id])
+
+  @@index([createdByUserId, status])
+  @@map("onboarding_drafts")
 }
 
 model Branch {
@@ -78,10 +275,126 @@ model Branch {
   returns        Return[]
   purchases      Purchase[]
   expenses       Expense[]
+  deliveries     Delivery[]
+  diningTables   DiningTable[]
+  departments    Department[]
+  rooms          Room[]
 
   @@unique([tenantId, code])
   @@index([tenantId])
   @@map("branches")
+}
+
+/// Operational unit within a business (restaurant, spa, grocery, etc.)
+model Department {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  branchId    String?  @map("branch_id")
+  code        String
+  name        String
+  description String?
+  /// restaurant|bar|retail|accommodation|spa|laundry|gift_shop|wholesale|pharmacy|hardware|services|other
+  type        String   @default("retail")
+  status      String   @default("active")
+  settings    Json     @default("{}")
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  createdBy   String?  @map("created_by")
+  updatedBy   String?  @map("updated_by")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  branch  Branch? @relation(fields: [branchId], references: [id])
+  members DepartmentMember[]
+  devices DepartmentDevice[]
+  products DepartmentProduct[]
+  sales   Sale[]
+  diningTables DiningTable[]
+  kitchenTickets KitchenTicket[]
+  rooms Room[]
+  folios Folio[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId, branchId])
+  @@map("departments")
+}
+
+/// Shared master Product offered in a department (no SKU clone)
+model DepartmentProduct {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  departmentId String   @map("department_id")
+  productId    String   @map("product_id")
+  priceMinor   Int?     @map("price_minor")
+  available    Boolean  @default(true)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, productId])
+  @@index([tenantId])
+  @@map("department_products")
+}
+
+model DepartmentMember {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  departmentId String   @map("department_id")
+  userId       String   @map("user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, userId])
+  @@index([tenantId])
+  @@map("department_members")
+}
+
+model DepartmentDevice {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  departmentId String   @map("department_id")
+  deviceId     String   @map("device_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  department Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  device     Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([departmentId, deviceId])
+  @@index([tenantId])
+  @@map("department_devices")
+}
+
+// Restaurant floor tables (additive — retail tenants simply leave empty)
+model DiningTable {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  branchId     String   @map("branch_id")
+  code         String
+  label        String?
+  seats        Int      @default(4)
+  status       String   @default("free") // free | occupied | reserved | dirty
+  sortOrder    Int      @default(0) @map("sort_order")
+  departmentId String?  @map("department_id")
+  section      String?
+  /// Open check currently bound to this table (if any)
+  currentSaleId String? @map("current_sale_id")
+  waiterUserId  String? @map("waiter_user_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant      @relation(fields: [tenantId], references: [id])
+  branch       Branch      @relation(fields: [branchId], references: [id])
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  @@unique([tenantId, branchId, code])
+  @@index([tenantId, branchId])
+  @@index([tenantId, status])
+  @@map("dining_tables")
 }
 
 model Device {
@@ -90,6 +403,7 @@ model Device {
   branchId   String    @map("branch_id")
   name       String
   status     String    @default("active")
+  settings   Json      @default("{}")
   lastSeenAt DateTime? @map("last_seen_at")
   syncCursor Json?     @map("sync_cursor")
   createdAt  DateTime  @default(now()) @map("created_at")
@@ -103,6 +417,7 @@ model Device {
   syncChanges    SyncChange[]
   syncConflicts  SyncConflict[]
   auditLogs      AuditLog[]
+  departments    DepartmentDevice[]
 
   @@index([tenantId])
   @@index([tenantId, branchId])
@@ -128,8 +443,11 @@ model User {
   userRoles     UserRole[]
   refreshTokens RefreshToken[]
   sales         Sale[]         @relation("SaleCashier")
+  deliveries    Delivery[]     @relation("DeliveryAssignee")
+  announcements Announcement[] @relation("AnnouncementAuthor")
   auditLogs     AuditLog[]
   notifications Notification[]
+  departmentMembers DepartmentMember[]
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -306,6 +624,12 @@ model Product {
   costMinor      Int?      @map("cost_minor")
   taxRateBps     Int       @default(0) @map("tax_rate_bps")
   trackInventory Boolean   @default(true) @map("track_inventory")
+  /// stock | prepared | service | accommodation | composite | non_stock
+  itemType       String    @default("stock") @map("item_type")
+  imageUrl       String?   @map("image_url")
+  thumbnailUrl   String?   @map("thumbnail_url")
+  featured       Boolean   @default(false)
+  minStockQty    Int       @default(0) @map("min_stock_qty")
   status         String    @default("active")
   extensions     Json      @default("{}")
   version        Int       @default(1)
@@ -325,11 +649,237 @@ model Product {
   saleItems      SaleItem[]
   returnItems    ReturnItem[]
   purchaseItems  PurchaseItem[]
+  departmentOffers DepartmentProduct[]
+  recipeLinesAsParent ProductRecipeLine[] @relation("RecipeParent")
+  recipeLinesAsIngredient ProductRecipeLine[] @relation("RecipeIngredient")
+  modifierGroups ProductModifierGroup[]
+  batches        ProductBatch[]
+  prescriptionItems PrescriptionItem[]
+  priceListItems PriceListItem[]
+  serials        ProductSerial[]
 
   @@unique([tenantId, sku])
   @@index([tenantId])
   @@index([tenantId, barcode])
+  @@index([tenantId, itemType])
   @@map("products")
+}
+
+model ProductRecipeLine {
+  id                  String @id @default(uuid())
+  tenantId            String @map("tenant_id")
+  parentProductId     String @map("parent_product_id")
+  ingredientProductId String @map("ingredient_product_id")
+  quantity            Decimal @db.Decimal(12, 4)
+  unitLabel           String? @map("unit_label")
+
+  parent     Product @relation("RecipeParent", fields: [parentProductId], references: [id], onDelete: Cascade)
+  ingredient Product @relation("RecipeIngredient", fields: [ingredientProductId], references: [id])
+
+  @@unique([parentProductId, ingredientProductId])
+  @@index([tenantId])
+  @@map("product_recipe_lines")
+}
+
+model ProductModifierGroup {
+  id           String  @id @default(uuid())
+  tenantId     String  @map("tenant_id")
+  productId    String  @map("product_id")
+  name         String
+  minSelect    Int     @default(0) @map("min_select")
+  maxSelect    Int     @default(1) @map("max_select")
+  required     Boolean @default(false)
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  modifiers ProductModifier[]
+
+  @@index([tenantId, productId])
+  @@map("product_modifier_groups")
+}
+
+model ProductModifier {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  groupId   String @map("group_id")
+  name      String
+  priceMinor Int   @default(0) @map("price_minor")
+  sortOrder Int    @default(0) @map("sort_order")
+  status    String @default("active")
+
+  group ProductModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, groupId])
+  @@map("product_modifiers")
+}
+
+model KitchenTicket {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  branchId     String   @map("branch_id")
+  departmentId String?  @map("department_id")
+  saleId       String   @map("sale_id")
+  tableCode    String?  @map("table_code")
+  status       String   @default("queued") // queued | preparing | ready | served | cancelled
+  priority     Int      @default(0)
+  station      String?  // grill | bar | pastry | …
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  sale       Sale        @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  items      KitchenTicketItem[]
+
+  @@index([tenantId, status])
+  @@index([saleId])
+  @@map("kitchen_tickets")
+}
+
+model KitchenTicketItem {
+  id             String @id @default(uuid())
+  ticketId       String @map("ticket_id")
+  tenantId       String @map("tenant_id")
+  saleItemId     String? @map("sale_item_id")
+  productId      String @map("product_id")
+  nameSnapshot   String @map("name_snapshot")
+  quantity       Int
+  notes          String?
+  status         String @default("queued")
+
+  ticket KitchenTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("kitchen_ticket_items")
+}
+
+// ---------------------------------------------------------------------------
+// Hotel / accommodation
+// ---------------------------------------------------------------------------
+
+model RoomType {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  code        String
+  name        String
+  description String?
+  baseRateMinor Int  @map("base_rate_minor")
+  maxOccupancy Int   @default(2) @map("max_occupancy")
+  status      String @default("active")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  rooms  Room[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("room_types")
+}
+
+model Room {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  branchId     String @map("branch_id")
+  departmentId String? @map("department_id")
+  roomTypeId   String @map("room_type_id")
+  code         String
+  floor        String?
+  /// available | occupied | dirty | cleaning | maintenance | out_of_service
+  status       String @default("available")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  roomType   RoomType    @relation(fields: [roomTypeId], references: [id])
+  stays      Stay[]
+
+  @@unique([tenantId, branchId, code])
+  @@index([tenantId, status])
+  @@map("rooms")
+}
+
+model Reservation {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  branchId     String   @map("branch_id")
+  customerId   String?  @map("customer_id")
+  guestName    String   @map("guest_name")
+  guestPhone   String?  @map("guest_phone")
+  roomTypeId   String?  @map("room_type_id")
+  checkInDate  DateTime @map("check_in_date") @db.Date
+  checkOutDate DateTime @map("check_out_date") @db.Date
+  adults       Int      @default(1)
+  children     Int      @default(0)
+  status       String   @default("confirmed") // confirmed | checked_in | checked_out | cancelled | no_show
+  notes        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  stays  Stay[]
+  folio  Folio?
+
+  @@index([tenantId, status])
+  @@index([tenantId, checkInDate])
+  @@map("reservations")
+}
+
+model Stay {
+  id            String    @id @default(uuid())
+  tenantId      String    @map("tenant_id")
+  reservationId String    @map("reservation_id")
+  roomId        String    @map("room_id")
+  checkedInAt   DateTime  @map("checked_in_at")
+  checkedOutAt  DateTime? @map("checked_out_at")
+  status        String    @default("in_house") // in_house | checked_out
+
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  reservation Reservation @relation(fields: [reservationId], references: [id])
+  room        Room        @relation(fields: [roomId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([roomId, status])
+  @@map("stays")
+}
+
+model Folio {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  departmentId  String?  @map("department_id")
+  reservationId String?  @unique @map("reservation_id")
+  stayId        String?  @map("stay_id")
+  customerId    String?  @map("customer_id")
+  guestName     String   @map("guest_name")
+  status        String   @default("open") // open | settled | void
+  balanceMinor  Int      @default(0) @map("balance_minor")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  tenant      Tenant       @relation(fields: [tenantId], references: [id])
+  department  Department?  @relation(fields: [departmentId], references: [id])
+  reservation Reservation? @relation(fields: [reservationId], references: [id])
+  charges     FolioCharge[]
+
+  @@index([tenantId, status])
+  @@map("folios")
+}
+
+model FolioCharge {
+  id             String   @id @default(uuid())
+  tenantId       String   @map("tenant_id")
+  folioId        String   @map("folio_id")
+  /// Original commerce sale — uniqueness prevents duplicate posting
+  saleId         String   @unique @map("sale_id")
+  departmentId   String?  @map("department_id")
+  amountMinor    Int      @map("amount_minor")
+  description    String?
+  authorizedById String?  @map("authorized_by_id")
+  postedAt       DateTime @default(now()) @map("posted_at")
+
+  folio Folio @relation(fields: [folioId], references: [id], onDelete: Cascade)
+  sale  Sale  @relation(fields: [saleId], references: [id])
+
+  @@index([tenantId, folioId])
+  @@map("folio_charges")
 }
 
 // ---------------------------------------------------------------------------
@@ -418,14 +968,19 @@ model Customer {
   status     String    @default("active")
   version    Int       @default(1)
   extensions Json      @default("{}")
+  address    Json?
   createdAt  DateTime  @default(now()) @map("created_at")
   updatedAt  DateTime  @updatedAt @map("updated_at")
   createdBy  String?   @map("created_by")
   updatedBy  String?   @map("updated_by")
   archivedAt DateTime? @map("archived_at")
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
-  sales  Sale[]
+  tenant     Tenant     @relation(fields: [tenantId], references: [id])
+  sales      Sale[]
+  deliveries Delivery[]
+  prescriptions Prescription[]
+  priceListId String?   @map("price_list_id")
+  priceList  PriceList? @relation(fields: [priceListId], references: [id])
 
   @@index([tenantId])
   @@index([tenantId, phone])
@@ -445,24 +1000,42 @@ model Sale {
   discountMinor  Int      @default(0) @map("discount_minor")
   totalMinor     Int      @map("total_minor")
   currency       String   @db.Char(3)
-  receiptNumber  String   @map("receipt_number")
-  occurredAt     DateTime @map("occurred_at")
-  version        Int      @default(1)
-  createdAt      DateTime @default(now()) @map("created_at")
-  createdBy      String?  @map("created_by")
+  receiptNumber         String   @map("receipt_number")
+  occurredAt            DateTime @map("occurred_at")
+  cashierNameSnapshot   String?  @map("cashier_name_snapshot")
+  branchNameSnapshot    String?  @map("branch_name_snapshot")
+  deviceNameSnapshot    String?  @map("device_name_snapshot")
+  fiscalStatus          String   @default("not_configured") @map("fiscal_status")
+  deliveryFeeMinor      Int      @default(0) @map("delivery_fee_minor")
+  /// retail | dine_in | takeaway | delivery
+  orderType             String   @default("retail") @map("order_type")
+  tableCode             String?  @map("table_code")
+  departmentId          String?  @map("department_id")
+  waiterUserId          String?  @map("waiter_user_id")
+  /// open | sent_to_kitchen | completed | voided (restaurant checks)
+  checkStatus           String?  @map("check_status")
+  version               Int      @default(1)
+  createdAt             DateTime @default(now()) @map("created_at")
+  createdBy             String?  @map("created_by")
 
-  tenant   Tenant        @relation(fields: [tenantId], references: [id])
-  branch   Branch        @relation(fields: [branchId], references: [id])
-  device   Device?       @relation(fields: [deviceId], references: [id])
-  cashier  User          @relation("SaleCashier", fields: [cashierUserId], references: [id])
-  customer Customer?     @relation(fields: [customerId], references: [id])
-  items    SaleItem[]
-  payments SalePayment[]
-  returns  Return[]
+  tenant     Tenant      @relation(fields: [tenantId], references: [id])
+  branch     Branch      @relation(fields: [branchId], references: [id])
+  device     Device?     @relation(fields: [deviceId], references: [id])
+  cashier    User        @relation("SaleCashier", fields: [cashierUserId], references: [id])
+  customer   Customer?   @relation(fields: [customerId], references: [id])
+  department Department? @relation(fields: [departmentId], references: [id])
+  items      SaleItem[]
+  payments   SalePayment[]
+  returns    Return[]
+  deliveries Delivery[]
+  kitchenTickets KitchenTicket[]
+  folioCharges   FolioCharge[]
 
   @@unique([tenantId, branchId, receiptNumber])
   @@index([tenantId])
   @@index([tenantId, occurredAt])
+  @@index([tenantId, orderType])
+  @@index([tenantId, departmentId])
   @@map("sales")
 }
 
@@ -493,10 +1066,13 @@ model SalePayment {
   id          String   @id @default(uuid())
   saleId      String   @map("sale_id")
   tenantId    String   @map("tenant_id")
-  method      String
-  amountMinor Int      @map("amount_minor")
-  reference   String?
-  createdAt   DateTime @default(now()) @map("created_at")
+  method        String
+  amountMinor   Int      @map("amount_minor")
+  tenderedMinor Int?     @map("tendered_minor")
+  changeMinor   Int?     @map("change_minor")
+  status        String   @default("completed")
+  reference     String?
+  createdAt     DateTime @default(now()) @map("created_at")
 
   sale   Sale   @relation(fields: [saleId], references: [id], onDelete: Cascade)
   tenant Tenant @relation(fields: [tenantId], references: [id])
@@ -582,6 +1158,9 @@ model Purchase {
   totalMinor    Int       @default(0) @map("total_minor")
   currency      String    @db.Char(3)
   reference     String?
+  lpoNumber     String?   @map("lpo_number")
+  notes         String?
+  issuedAt      DateTime? @map("issued_at")
   receivedAt    DateTime? @map("received_at")
   version       Int       @default(1)
   createdAt     DateTime  @default(now()) @map("created_at")
@@ -596,6 +1175,7 @@ model Purchase {
 
   @@index([tenantId])
   @@index([tenantId, branchId])
+  @@unique([tenantId, lpoNumber])
   @@map("purchases")
 }
 
@@ -604,9 +1184,10 @@ model PurchaseItem {
   purchaseId     String @map("purchase_id")
   tenantId       String @map("tenant_id")
   productId      String @map("product_id")
-  quantity       Int
-  unitCostMinor  Int    @map("unit_cost_minor")
-  lineTotalMinor Int    @map("line_total_minor")
+  quantity         Int
+  quantityReceived Int @default(0) @map("quantity_received")
+  unitCostMinor    Int @map("unit_cost_minor")
+  lineTotalMinor   Int @map("line_total_minor")
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   tenant   Tenant   @relation(fields: [tenantId], references: [id])
@@ -621,11 +1202,14 @@ model Expense {
   id          String   @id @default(uuid())
   tenantId    String   @map("tenant_id")
   branchId    String   @map("branch_id")
-  category    String
-  amountMinor Int      @map("amount_minor")
-  currency    String   @db.Char(3)
-  notes       String?
-  occurredAt  DateTime @map("occurred_at")
+  category       String
+  amountMinor    Int      @map("amount_minor")
+  currency       String   @db.Char(3)
+  notes          String?
+  paymentMethod  String?  @map("payment_method")
+  approvalStatus String   @default("recorded") @map("approval_status")
+  receiptUrl     String?  @map("receipt_url")
+  occurredAt     DateTime @map("occurred_at")
   version     Int      @default(1)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
@@ -717,4 +1301,463 @@ model Notification {
   @@index([tenantId])
   @@index([userId, readAt])
   @@map("notifications")
+}
+
+// ---------------------------------------------------------------------------
+// Deliveries & internal messages
+// ---------------------------------------------------------------------------
+
+model Delivery {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  branchId        String    @map("branch_id")
+  saleId          String    @map("sale_id")
+  customerId      String?   @map("customer_id")
+  phone           String?
+  address         String?
+  location        String?
+  feeMinor        Int       @default(0) @map("fee_minor")
+  instructions    String?
+  assigneeUserId  String?   @map("assignee_user_id")
+  status          String    @default("PENDING")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  dispatchedAt    DateTime? @map("dispatched_at")
+  completedAt     DateTime? @map("completed_at")
+  createdBy       String?   @map("created_by")
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id])
+  branch   Branch          @relation(fields: [branchId], references: [id])
+  sale     Sale            @relation(fields: [saleId], references: [id])
+  customer Customer?       @relation(fields: [customerId], references: [id])
+  assignee User?           @relation("DeliveryAssignee", fields: [assigneeUserId], references: [id])
+  events   DeliveryEvent[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([saleId])
+  @@map("deliveries")
+}
+
+model DeliveryEvent {
+  id         String   @id @default(uuid())
+  deliveryId String   @map("delivery_id")
+  tenantId   String   @map("tenant_id")
+  status     String
+  note       String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  createdBy  String?  @map("created_by")
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  @@index([deliveryId])
+  @@map("delivery_events")
+}
+
+model Announcement {
+  id         String    @id @default(uuid())
+  tenantId   String    @map("tenant_id")
+  authorId   String    @map("author_id")
+  title      String
+  body       String
+  audience   String    @default("all")
+  branchId   String?   @map("branch_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  tenant Tenant             @relation(fields: [tenantId], references: [id])
+  author User               @relation("AnnouncementAuthor", fields: [authorId], references: [id])
+  reads  AnnouncementRead[]
+
+  @@index([tenantId])
+  @@index([tenantId, createdAt])
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  announcementId String   @map("announcement_id")
+  userId         String   @map("user_id")
+  readAt         DateTime @default(now()) @map("read_at")
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@id([announcementId, userId])
+  @@map("announcement_reads")
+}
+
+// ---------------------------------------------------------------------------
+// Industry packs — pharmacy, wholesale, services (Phase 8)
+// ---------------------------------------------------------------------------
+
+/// Lot / batch tracking for pharmacy and regulated goods (not ordinary stock SKU)
+model ProductBatch {
+  id           String    @id @default(uuid())
+  tenantId     String    @map("tenant_id")
+  productId    String    @map("product_id")
+  batchNumber  String    @map("batch_number")
+  expiryDate   DateTime? @map("expiry_date") @db.Date
+  manufacturedAt DateTime? @map("manufactured_at") @db.Date
+  quantityOnHand Int     @default(0) @map("quantity_on_hand")
+  status       String    @default("active") // active | recalled | depleted | expired
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, productId, batchNumber])
+  @@index([tenantId, expiryDate])
+  @@index([tenantId, status])
+  @@map("product_batches")
+}
+
+model Prescription {
+  id            String   @id @default(uuid())
+  tenantId      String   @map("tenant_id")
+  customerId    String?  @map("customer_id")
+  patientName   String   @map("patient_name")
+  patientPhone  String?  @map("patient_phone")
+  prescriber    String?
+  rxNumber      String?  @map("rx_number")
+  status        String   @default("open") // open | dispensed | cancelled
+  notes         String?
+  saleId        String?  @map("sale_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdBy     String?  @map("created_by")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  customer Customer? @relation(fields: [customerId], references: [id])
+  items   PrescriptionItem[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, patientName])
+  @@map("prescriptions")
+}
+
+model PrescriptionItem {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  prescriptionId String @map("prescription_id")
+  productId      String @map("product_id")
+  quantity       Int
+  dosage         String?
+  instructions   String?
+  batchId        String? @map("batch_id")
+
+  prescription Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+
+  @@index([prescriptionId])
+  @@map("prescription_items")
+}
+
+model PriceList {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  code      String
+  name      String
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id])
+  items     PriceListItem[]
+  customers Customer[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("price_lists")
+}
+
+model PriceListItem {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  priceListId  String @map("price_list_id")
+  productId    String @map("product_id")
+  priceMinor   Int    @map("price_minor")
+  minQuantity  Int    @default(1) @map("min_quantity")
+
+  priceList PriceList @relation(fields: [priceListId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([priceListId, productId, minQuantity])
+  @@index([tenantId])
+  @@map("price_list_items")
+}
+
+/// Service / workshop jobs (repairs, appointments) — not SKU inventory
+model ServiceJob {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  branchId    String    @map("branch_id")
+  customerId  String?   @map("customer_id")
+  title       String
+  description String?
+  status      String    @default("open") // open | in_progress | waiting_parts | done | cancelled | invoiced
+  priority    Int       @default(0)
+  saleId      String?   @map("sale_id")
+  dueAt       DateTime? @map("due_at")
+  completedAt DateTime? @map("completed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  createdBy   String?   @map("created_by")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, branchId])
+  @@map("service_jobs")
+}
+
+/// Layered configuration overrides. Never rewrite historical transactions.
+/// Resolution: platform defaults ← tenant ← branch ← department ← device (terminal).
+model ConfigSetting {
+  id           String   @id @default(uuid())
+  tenantId     String   @map("tenant_id")
+  /// tenant | branch | department | device
+  layer        String
+  /// Deterministic scope key e.g. "tenant", "branch:<id>", "department:<id>", "device:<id>"
+  scopeKey     String   @map("scope_key")
+  branchId     String?  @map("branch_id")
+  departmentId String?  @map("department_id")
+  deviceId     String?  @map("device_id")
+  key          String
+  value        Json
+  updatedBy    String?  @map("updated_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@unique([tenantId, scopeKey, key])
+  @@index([tenantId, key])
+  @@index([tenantId, layer])
+  @@map("config_settings")
+}
+
+/// Cashier / POS shift for cash reconciliation
+model CashierShift {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  branchId        String    @map("branch_id")
+  deviceId        String?   @map("device_id")
+  cashierUserId   String    @map("cashier_user_id")
+  openedAt        DateTime  @default(now()) @map("opened_at")
+  closedAt        DateTime? @map("closed_at")
+  openingFloatMinor Int     @default(0) @map("opening_float_minor")
+  closingCountedMinor Int?  @map("closing_counted_minor")
+  expectedCashMinor Int?    @map("expected_cash_minor")
+  varianceMinor   Int?      @map("variance_minor")
+  status          String    @default("open") // open | closed
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, status])
+  @@index([tenantId, cashierUserId, status])
+  @@map("cashier_shifts")
+}
+
+/// Serialized unit for hardware/electronics — end-to-end traceability
+model ProductSerial {
+  id              String    @id @default(uuid())
+  tenantId        String    @map("tenant_id")
+  productId       String    @map("product_id")
+  serialNumber    String    @map("serial_number")
+  /// in_stock | sold | returned | repair | written_off
+  status          String    @default("in_stock")
+  warehouseId     String?   @map("warehouse_id")
+  purchaseId      String?   @map("purchase_id")
+  saleId          String?   @map("sale_id")
+  customerId      String?   @map("customer_id")
+  warrantyMonths  Int?      @map("warranty_months")
+  warrantyStartsAt DateTime? @map("warranty_starts_at") @db.Date
+  warrantyEndsAt  DateTime? @map("warranty_ends_at") @db.Date
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  events  ProductSerialEvent[]
+
+  @@unique([tenantId, serialNumber])
+  @@index([tenantId, productId])
+  @@index([tenantId, status])
+  @@index([tenantId, saleId])
+  @@map("product_serials")
+}
+
+model ProductSerialEvent {
+  id         String   @id @default(uuid())
+  tenantId   String   @map("tenant_id")
+  serialId   String   @map("serial_id")
+  /// received | sold | returned | warranty_registered | repair_opened | repair_closed | status_change
+  eventType  String   @map("event_type")
+  referenceType String? @map("reference_type")
+  referenceId   String? @map("reference_id")
+  note       String?
+  actorUserId String? @map("actor_user_id")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  serial ProductSerial @relation(fields: [serialId], references: [id], onDelete: Cascade)
+
+  @@index([serialId])
+  @@index([tenantId, eventType])
+  @@map("product_serial_events")
+}
+
+/// Commercial plan catalog (SaaS-05). Public pricing reads these rows — not hardcoded UI copies.
+model Plan {
+  id              String   @id @default(uuid())
+  code            String   @unique
+  name            String
+  description     String?
+  /// minor units (e.g. cents) — display divides by 100
+  priceMinor      Int      @map("price_minor")
+  currency        String   @db.Char(3) @default("KES")
+  /// monthly | yearly
+  interval        String   @default("monthly")
+  branchLimit     Int?     @map("branch_limit")
+  userLimit       Int?     @map("user_limit")
+  deviceLimit     Int?     @map("device_limit")
+  storageMbLimit  Int?     @map("storage_mb_limit")
+  modulesAllowed  Json     @default("{}") @map("modules_allowed")
+  reportingLevel  String   @default("standard") @map("reporting_level")
+  supportLevel    String   @default("standard") @map("support_level")
+  integrationsAllowed Json @default("{}") @map("integrations_allowed")
+  isPublic        Boolean  @default(true) @map("is_public")
+  isActive        Boolean  @default(true) @map("is_active")
+  sortOrder       Int      @default(0) @map("sort_order")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+model Subscription {
+  id                 String    @id @default(uuid())
+  tenantId           String    @unique @map("tenant_id")
+  planId             String    @map("plan_id")
+  /// pending | active | past_due | grace | suspended | cancelled | expired
+  status             String    @default("pending")
+  currentPeriodStart DateTime? @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  graceEndsAt        DateTime? @map("grace_ends_at")
+  cancelledAt        DateTime? @map("cancelled_at")
+  metadata           Json      @default("{}")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  plan     Plan              @relation(fields: [planId], references: [id])
+  invoices SubscriptionInvoice[]
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+model SubscriptionInvoice {
+  id             String    @id @default(uuid())
+  subscriptionId String    @map("subscription_id")
+  tenantId       String    @map("tenant_id")
+  number         String
+  /// draft | open | paid | void | uncollectible
+  status         String    @default("open")
+  amountMinor    Int       @map("amount_minor")
+  currency       String    @db.Char(3)
+  dueAt          DateTime? @map("due_at")
+  paidAt         DateTime? @map("paid_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  subscription Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payments     SubscriptionPayment[]
+
+  @@unique([tenantId, number])
+  @@index([subscriptionId])
+  @@index([tenantId, status])
+  @@map("subscription_invoices")
+}
+
+model SubscriptionPayment {
+  id             String    @id @default(uuid())
+  invoiceId      String    @map("invoice_id")
+  tenantId       String    @map("tenant_id")
+  amountMinor    Int       @map("amount_minor")
+  currency       String    @db.Char(3)
+  /// manual | gateway — gateway never auto-confirms without adapter evidence
+  method         String    @default("manual")
+  /// pending | confirmed | failed | refunded
+  status         String    @default("pending")
+  reference      String?
+  recordedByUserId String? @map("recorded_by_user_id")
+  confirmedAt    DateTime? @map("confirmed_at")
+  notes          String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  invoice SubscriptionInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([tenantId, status])
+  @@map("subscription_payments")
+}
+
+model SupportTicket {
+  id              String    @id @default(uuid())
+  tenantId        String?   @map("tenant_id")
+  /// platform | tenant
+  origin          String    @default("tenant")
+  subject         String
+  category        String    @default("general")
+  /// low | normal | high | urgent
+  priority        String    @default("normal")
+  /// open | pending | waiting_customer | resolved | closed
+  status          String    @default("open")
+  requesterUserId String?   @map("requester_user_id")
+  requesterEmail  String?   @map("requester_email")
+  assigneeUserId  String?   @map("assignee_user_id")
+  resolvedAt      DateTime? @map("resolved_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  messages SupportMessage[]
+
+  @@index([tenantId, status])
+  @@index([status, priority])
+  @@map("support_tickets")
+}
+
+model SupportMessage {
+  id             String   @id @default(uuid())
+  ticketId       String   @map("ticket_id")
+  authorUserId   String?  @map("author_user_id")
+  authorEmail    String?  @map("author_email")
+  /// customer | agent | system
+  authorRole     String   @default("customer") @map("author_role")
+  body           String
+  /// Internal notes never exposed to tenant users
+  isInternal     Boolean  @default(false) @map("is_internal")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  ticket SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+  @@map("support_messages")
+}
+
+/// Platform-wide settings (not tenant config). Values are non-secret operational knobs.
+model PlatformSetting {
+  key       String   @id
+  value     Json     @default("{}")
+  updatedBy String?  @map("updated_by")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("platform_settings")
 }

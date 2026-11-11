@@ -9,8 +9,9 @@ export function LoginPage() {
   const navigate = useNavigate();
   const theme = useThemeStore((s) => s.theme);
   const toggleTheme = useThemeStore((s) => s.toggleTheme);
-  const [email, setEmail] = useState("owner@sokoos.demo");
-  const [password, setPassword] = useState("demo");
+  const [email, setEmail] = useState("demo@sokoos.local");
+  const [password, setPassword] = useState("Demo123!");
+  const [tenantSlug, setTenantSlug] = useState("demo");
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
@@ -19,8 +20,14 @@ export function LoginPage() {
     setPending(true);
     setError(null);
     try {
-      await login(email, password);
-      await navigate({ to: "/" });
+      await login(email, password, tenantSlug);
+      const platform = useAuthStore.getState().has("platform.tenants.manage")
+        || useAuthStore.getState().has("platform.tenants.read");
+      if (platform && !tenantSlug.trim()) {
+        await navigate({ to: "/platform" as never });
+      } else {
+        await navigate({ to: "/" });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to sign in");
     } finally {
@@ -47,21 +54,17 @@ export function LoginPage() {
         <form
           onSubmit={onSubmit}
           className="mt-8 space-y-4 rounded-[var(--soko-radius-lg)] border border-[var(--soko-color-border)] bg-[var(--soko-color-surface)] p-6"
-          style={{ boxShadow: "var(--soko-elevation-1)" }}
         >
-          <h1 className="text-xl font-semibold">Sign in to admin</h1>
+          <h1 className="text-xl font-semibold">Sign in</h1>
           <Input
-            label="Email"
-            type="email"
-            autoComplete="username"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
+            label="Tenant slug (blank for platform console)"
+            value={tenantSlug}
+            onChange={(e) => setTenantSlug(e.target.value)}
           />
+          <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <Input
             label="Password"
             type="password"
-            autoComplete="current-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
@@ -70,6 +73,9 @@ export function LoginPage() {
           <Button type="submit" className="btn-press w-full" disabled={pending}>
             {pending ? "Signing in…" : "Sign in"}
           </Button>
+          <p className="text-xs text-[var(--soko-color-text-muted)]">
+            Platform: leave tenant blank · platform@sokoos.local / Platform123!
+          </p>
         </form>
       </div>
     </div>

@@ -1,0 +1,248 @@
+:root {
+  --ink: #102a28;
+  --paper: #f3f7f4;
+  --sea: #0b6e4f;
+  --sea-deep: #094c38;
+  --sand: #d9e5dc;
+  --warn: #b45309;
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "Source Sans 3", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background:
+    radial-gradient(1200px 600px at 10% -10%, #cfe8dc 0%, transparent 55%),
+    radial-gradient(900px 500px at 100% 0%, #e7f0ea 0%, transparent 50%),
+    linear-gradient(180deg, #eef5f1 0%, var(--paper) 40%, #e8f1eb 100%);
+}
+
+a {
+  color: var(--sea-deep);
+}
+
+.shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.25rem 1.5rem 4rem;
+}
+
+.nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2.5rem;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--sea-deep);
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  font-size: 0.95rem;
+}
+
+.nav-links button {
+  background: none;
+  border: none;
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  opacity: 0.8;
+}
+
+.nav-links button:hover,
+.nav-links button.active {
+  opacity: 1;
+  color: var(--sea-deep);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.hero {
+  min-height: min(72vh, 640px);
+  display: grid;
+  align-content: end;
+  gap: 1rem;
+  padding: 2rem 0 3rem;
+  background:
+    linear-gradient(120deg, rgba(11, 110, 79, 0.12), transparent 45%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 40 40'%3E%3Cg fill='%230b6e4f' fill-opacity='0.05'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+  border-radius: 0;
+}
+
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2.4rem, 6vw, 4rem);
+  line-height: 1.05;
+  margin: 0;
+  max-width: 12ch;
+}
+
+.hero p {
+  max-width: 36rem;
+  font-size: 1.125rem;
+  margin: 0;
+  opacity: 0.9;
+}
+
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0.7rem 1.2rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.btn-primary {
+  background: var(--sea);
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: var(--sea-deep);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: rgba(16, 42, 40, 0.25);
+  color: var(--ink);
+}
+
+.section {
+  padding: 2.5rem 0;
+  border-top: 1px solid rgba(16, 42, 40, 0.08);
+}
+
+.section h2 {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  margin: 0 0 0.5rem;
+}
+
+.section > p.lead {
+  margin: 0 0 1.5rem;
+  max-width: 40rem;
+  opacity: 0.85;
+}
+
+.plan-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.plan {
+  padding: 1.25rem;
+  border: 1px solid rgba(16, 42, 40, 0.12);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.plan h3 {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+}
+
+.price {
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.form {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+.form label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.form input,
+.form select,
+.form textarea {
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid rgba(16, 42, 40, 0.2);
+  border-radius: 0.4rem;
+  background: #fff;
+}
+
+.msg {
+  font-size: 0.9rem;
+}
+
+.msg.err {
+  color: #9f1239;
+}
+
+.msg.ok {
+  color: var(--sea-deep);
+}
+
+.entry-links {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.hero h1,
+.hero p,
+.cta-row {
+  animation: rise 0.7s ease both;
+}
+
+.hero p {
+  animation-delay: 0.08s;
+}
+
+.cta-row {
+  animation-delay: 0.16s;
+}

@@ -14,6 +14,11 @@ class UpdateTenantDto {
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsObject() taxConfig?: object;
   @IsOptional() @IsObject() settings?: object;
+  @IsOptional() businessTypes?: unknown;
+  @IsOptional() modulesEnabled?: unknown;
+  @IsOptional() @IsString() legalName?: string;
+  @IsOptional() @IsString() email?: string;
+  @IsOptional() @IsString() phone?: string;
 }
 
 class CreateTenantDto {

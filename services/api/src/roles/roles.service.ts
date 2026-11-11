@@ -9,6 +9,7 @@ import { PrismaService } from "../prisma/prisma.service";
 
 /** Default permission sets for platform role templates. */
 export const ROLE_PERMISSION_TEMPLATES: Record<string, readonly string[]> = {
+  [SystemRole.PlatformOwner]: CORE_PERMISSION_KEYS.filter((k) => k.startsWith("platform.")),
   [SystemRole.BusinessOwner]: CORE_PERMISSION_KEYS.filter(
     (k) => !k.startsWith("platform."),
   ),
@@ -42,6 +43,13 @@ export const ROLE_PERMISSION_TEMPLATES: Record<string, readonly string[]> = {
     "audit.read",
     "notifications.read",
     "tenant.settings.read",
+    "deliveries.read",
+    "deliveries.write",
+    "messages.read",
+    "messages.write",
+    "customers.read",
+    "customers.write",
+    "reports.export",
   ],
   [SystemRole.Cashier]: [
     "products.read",
@@ -51,6 +59,9 @@ export const ROLE_PERMISSION_TEMPLATES: Record<string, readonly string[]> = {
     "sales.read",
     "returns.create",
     "returns.read",
+    "customers.read",
+    "customers.write",
+    "deliveries.read",
     "notifications.read",
   ],
   [SystemRole.InventoryOfficer]: [

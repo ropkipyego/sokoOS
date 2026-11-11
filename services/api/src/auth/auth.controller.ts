@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   Post,
   UseGuards,
 } from "@nestjs/common";
@@ -34,6 +35,10 @@ class LoginDto {
   @IsOptional()
   @IsString()
   tenantSlug?: string;
+
+  @IsOptional()
+  @IsString()
+  host?: string;
 }
 
 class RefreshDto {
@@ -68,8 +73,13 @@ export class AuthController {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 900_000 } })
   @Post("login")
-  async login(@Body() body: LoginDto) {
-    const data = await this.auth.login(body);
+  async login(
+    @Body() body: LoginDto,
+    @Headers("host") httpHost?: string,
+    @Headers("x-sokoos-host") sokoHost?: string,
+  ) {
+    const host = body.host?.trim() || sokoHost?.trim() || httpHost;
+    const data = await this.auth.login({ ...body, host });
     return { data };
   }
 
@@ -90,6 +100,13 @@ export class AuthController {
   async me(@CurrentUser() user: AuthUser) {
     const data = await this.auth.me(user.id);
     return { data };
+  }
+
+  @Get("devices")
+  @RequirePermissions("devices.read")
+  async listDevices(@CurrentUser() user: AuthUser) {
+    if (!user.tenantId) return { data: [] };
+    return { data: await this.auth.listDevices(user.tenantId) };
   }
 
   @Post("devices/register")

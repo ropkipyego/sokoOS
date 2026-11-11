@@ -46,7 +46,17 @@ docs/
   deployment/       # Local/prod runbooks
   testing/          # QA strategy mapped to REQ-QA-*
   ai/               # Deferred AI roadmap
+  audit/            # Upgrade audits
 ```
+
+## Upgrade (2026-10)
+
+| Document | Purpose |
+| --- | --- |
+| [Upgrade audit](./audit/sokoos-upgrade-audit.md) | Current vs target, LPO gap, risks |
+| [Upgrade plan](./architecture/sokoos-upgrade-plan.md) | Staged implementation |
+| [Data flow](./architecture/sokoos-data-flow.md) | Sales, LPO, inventory, fiscal |
+
 
 ## Module Documentation Standard
 

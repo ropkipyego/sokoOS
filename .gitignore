@@ -42,6 +42,9 @@ yarn-error.log*
 packages/database/prisma/*.db
 packages/database/prisma/*.db-journal
 
+# Uploaded product / expense media
+services/api/uploads/
+
 # Misc
 *.local
 .cache/

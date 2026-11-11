@@ -1,13 +1,19 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  Header,
   Param,
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from "@nestjs/common";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { CatalogService } from "./catalog.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
@@ -130,6 +136,7 @@ export class CatalogController {
       barcode?: string;
       categoryId?: string;
       status?: string;
+      featured?: string;
     },
   ) {
     return this.catalog.listProducts(user.tenantId!, {
@@ -140,7 +147,36 @@ export class CatalogController {
       barcode: query.barcode,
       categoryId: query.categoryId,
       status: query.status,
+      featured: query.featured === "true",
     });
+  }
+
+  @Get("products/export.csv")
+  @RequirePermissions("products.read")
+  @Header("Content-Type", "text/csv")
+  async exportCsv(@CurrentUser() user: AuthUser) {
+    return this.catalog.exportCsv(user.tenantId!);
+  }
+
+  @Get("products/import-template.csv")
+  @RequirePermissions("products.import")
+  @Header("Content-Type", "text/csv")
+  importTemplate() {
+    return [
+      "sku,name,barcode,price,cost,minStockQty,featured,imageUrl",
+      "RICE-5KG,Premium Rice 5kg,6001234567890,1250.00,980.00,5,true,",
+      "OIL-2L,Cooking Oil 2L,6001234567891,890.00,720.00,8,false,https://example.com/oil.jpg",
+      "",
+    ].join("\n");
+  }
+
+  @Post("products/import")
+  @RequirePermissions("products.import")
+  async importProducts(
+    @CurrentUser() user: AuthUser,
+    @Body() body: { rows: Array<Record<string, string>> },
+  ) {
+    return { data: await this.catalog.importProducts(user.tenantId!, body.rows ?? [], user.id) };
   }
 
   @Post("products")
@@ -161,6 +197,10 @@ export class CatalogController {
       costMinor?: number;
       taxRateBps?: number;
       trackInventory?: boolean;
+      featured?: boolean;
+      minStockQty?: number;
+      imageUrl?: string;
+      thumbnailUrl?: string;
     },
   ) {
     return {
@@ -191,6 +231,8 @@ export class CatalogController {
       costMinor?: number | null;
       taxRateBps?: number;
       trackInventory?: boolean;
+      featured?: boolean;
+      minStockQty?: number;
       status?: string;
       version?: number;
     },
@@ -198,6 +240,28 @@ export class CatalogController {
     return {
       data: await this.catalog.updateProduct(user.tenantId!, id, body, user.id),
     };
+  }
+
+  @Post("products/:id/image")
+  @RequirePermissions("products.write")
+  @UseInterceptors(FileInterceptor("file", { storage: memoryStorage(), limits: { fileSize: 2_000_000 } }))
+  async uploadImage(
+    @CurrentUser() user: AuthUser,
+    @Param("id") id: string,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) {
+      return { error: { code: "VALIDATION_FAILED", message: "file is required" } };
+    }
+    return {
+      data: await this.catalog.setImage(user.tenantId!, id, file, user.id),
+    };
+  }
+
+  @Delete("products/:id/image")
+  @RequirePermissions("products.write")
+  async clearImage(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return { data: await this.catalog.clearImage(user.tenantId!, id, user.id) };
   }
 
   @Post("products/:id/archive")

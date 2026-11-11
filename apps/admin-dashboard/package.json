@@ -13,9 +13,12 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "...": "link:...",
+    "@sokoos/types": "workspace:*",
     "@sokoos/ui": "workspace:*",
     "@tanstack/react-query": "^5.81.5",
     "@tanstack/react-router": "^1.121.34",
+    "lucide-react": "^0.511.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "zustand": "^5.0.6"

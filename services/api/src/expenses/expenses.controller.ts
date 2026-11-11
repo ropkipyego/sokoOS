@@ -14,6 +14,8 @@ class CreateExpenseDto {
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsString() notes?: string;
   @IsOptional() @IsString() occurredAt?: string;
+  @IsOptional() @IsString() paymentMethod?: string;
+  @IsOptional() @IsString() approvalStatus?: string;
 }
 
 @Controller("expenses")
@@ -63,5 +65,11 @@ export class ExpensesController {
     @Body() body: Partial<CreateExpenseDto>,
   ) {
     return { data: await this.expenses.update(user.tenantId!, id, body, user.id) };
+  }
+
+  @Post(":id/approve")
+  @RequirePermissions("expenses.write")
+  async approve(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return { data: await this.expenses.approve(user.tenantId!, id, user.id) };
   }
 }

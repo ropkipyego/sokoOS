@@ -1,5 +1,13 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from "@nestjs/common";
-import { IsArray, IsInt, IsOptional, IsString, IsUUID, Min, ValidateNested } from "class-validator";
+import {
+  IsArray,
+  IsInt,
+  IsOptional,
+  IsString,
+  IsUUID,
+  Min,
+  ValidateNested,
+} from "class-validator";
 import { Type } from "class-transformer";
 import { PurchasesService } from "./purchases.service";
 import { JwtAuthGuard } from "../auth/jwt-auth.guard";
@@ -19,12 +27,21 @@ class CreatePurchaseDto {
   @IsOptional() @IsUUID() supplierId?: string;
   @IsOptional() @IsString() currency?: string;
   @IsOptional() @IsString() reference?: string;
+  @IsOptional() @IsString() notes?: string;
   @IsArray() @ValidateNested({ each: true }) @Type(() => PurchaseItemDto)
   items!: PurchaseItemDto[];
 }
 
+class ReceiveLineDto {
+  @IsUUID() productId!: string;
+  @IsInt() @Min(1) quantity!: number;
+}
+
 class ReceiveDto {
   @IsUUID() warehouseId!: string;
+  @IsOptional() @IsString() receiveId?: string;
+  @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => ReceiveLineDto)
+  items?: ReceiveLineDto[];
 }
 
 @Controller("purchases")
@@ -55,6 +72,18 @@ export class PurchasesController {
   @RequirePermissions("purchases.read")
   async get(@CurrentUser() user: AuthUser, @Param("id") id: string) {
     return { data: await this.purchases.get(user.tenantId!, id) };
+  }
+
+  @Post(":id/issue")
+  @RequirePermissions("purchases.write")
+  async issue(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return { data: await this.purchases.issue(user.tenantId!, id, user.id) };
+  }
+
+  @Post(":id/cancel")
+  @RequirePermissions("purchases.write")
+  async cancel(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    return { data: await this.purchases.cancel(user.tenantId!, id, user.id) };
   }
 
   @Post(":id/receive")

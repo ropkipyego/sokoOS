@@ -2,7 +2,7 @@ import type { ProductRecord } from "./types";
 
 /** Sample catalog so the POS works without an API. */
 export const SEED_PRODUCTS: ProductRecord[] = [
-  { id: "prod_rice", sku: "RICE-5KG", name: "Premium Rice 5kg", category: "Staples", priceCents: 125000, stock: 40 },
+  { id: "prod_rice", sku: "RICE-5KG", name: "Premium Rice 5kg", category: "Staples", priceCents: 125000, stock: 40, barcode: "6001234567890", featured: true },
   { id: "prod_oil", sku: "COOK-OIL", name: "Cooking Oil 2L", category: "Staples", priceCents: 89000, stock: 28 },
   { id: "prod_sugar", sku: "SUGAR-2KG", name: "Sugar 2kg", category: "Staples", priceCents: 42000, stock: 35 },
   { id: "prod_soap", sku: "SOAP-BAR", name: "Bar Soap Pack", category: "Household", priceCents: 15000, stock: 50 },
