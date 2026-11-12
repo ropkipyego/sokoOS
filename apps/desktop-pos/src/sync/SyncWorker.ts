@@ -1,7 +1,9 @@
 import type { LocalDb, OutboxRecord } from "../db";
 import { buildSyncEnvelope } from "./buildEnvelope";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/v1";
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.PROD ? "/v1" : "http://localhost:3001/v1");
 
 export type SyncStatus = "idle" | "syncing" | "offline" | "error" | "synced";
 

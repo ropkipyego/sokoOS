@@ -54,7 +54,13 @@ const GROUPS: NavGroup[] = [
   {
     title: "Sales",
     items: [
-      { to: "http://POS_HOST:5174", label: "POS Terminal", icon: ScanBarcode, perm: "sales.create", external: true },
+      {
+        to: import.meta.env.PROD ? "/pos" : "http://POS_HOST:5174",
+        label: "POS Terminal",
+        icon: ScanBarcode,
+        perm: "sales.create",
+        external: true,
+      },
       { to: "/sales", label: "Sales History", icon: History, perm: "sales.read" },
       { to: "/returns", label: "Credit notes", icon: Undo2, perm: "returns.read" },
       { to: "/deliveries", label: "Deliveries", icon: Truck, perm: "deliveries.read" },

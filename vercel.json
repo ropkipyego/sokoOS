@@ -1,0 +1,72 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "services": {
+    "admin-dashboard": {
+      "root": "apps/admin-dashboard",
+      "framework": "vite",
+      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "buildCommand": "cd ../.. && pnpm --filter @sokoos/types build && pnpm --filter @sokoos/ui build && pnpm --filter @sokoos/admin-dashboard build",
+      "outputDirectory": "dist",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    },
+    "desktop-pos": {
+      "root": "apps/desktop-pos",
+      "framework": "vite",
+      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "buildCommand": "cd ../.. && pnpm --filter @sokoos/ui build && pnpm --filter @sokoos/desktop-pos build",
+      "outputDirectory": "dist",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    },
+    "public-web": {
+      "root": "apps/public-web",
+      "framework": "vite",
+      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "buildCommand": "cd ../.. && pnpm --filter @sokoos/public-web build",
+      "outputDirectory": "dist",
+      "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+    },
+    "api": {
+      "root": ".",
+      "runtime": "container",
+      "dockerfile": "Dockerfile"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/v1",
+      "destination": { "service": "api" }
+    },
+    {
+      "source": "/v1/(.*)",
+      "destination": { "service": "api" }
+    },
+    {
+      "source": "/health",
+      "destination": { "service": "api" }
+    },
+    {
+      "source": "/health/(.*)",
+      "destination": { "service": "api" }
+    },
+    {
+      "source": "/pos",
+      "destination": { "service": "desktop-pos", "path": "/" }
+    },
+    {
+      "source": "/pos/(.*)",
+      "destination": { "service": "desktop-pos", "path": "/$1" }
+    },
+    {
+      "source": "/register",
+      "destination": { "service": "public-web", "path": "/" }
+    },
+    {
+      "source": "/register/(.*)",
+      "destination": { "service": "public-web", "path": "/$1" }
+    },
+    {
+      "source": "/(.*)",
+      "destination": { "service": "admin-dashboard" }
+    }
+  ]
+}

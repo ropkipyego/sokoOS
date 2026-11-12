@@ -99,9 +99,8 @@ Logical service boundaries (auth, sales, returns, inventory, sync, reporting, no
 
 ## Demo hosting (Vercel)
 
-Frontends (Admin / POS / Public) can deploy to **Vercel** for client demos.  
-The Nest API + Postgres must run elsewhere (Railway / Render / Fly).  
-Guide: [`docs/deployment/VERCEL-DEMO.md`](./docs/deployment/VERCEL-DEMO.md)
+One Vercel project, path routing: `/` admin · `/pos` · `/register` · `/v1` API (container).  
+Postgres still required for the API. Guide: [`docs/deployment/VERCEL-DEMO.md`](./docs/deployment/VERCEL-DEMO.md)
 
 ## Documentation
 

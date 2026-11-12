@@ -1,4 +1,7 @@
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3001/v1";
+/** Same-origin `/v1` on Vercel; localhost for local API. Override with VITE_API_URL. */
+const API_URL =
+  import.meta.env.VITE_API_URL ??
+  (import.meta.env.PROD ? "/v1" : "http://localhost:3001/v1");
 
 export type ApiError = {
   message: string;

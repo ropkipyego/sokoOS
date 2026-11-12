@@ -69,7 +69,8 @@ async function bootstrap() {
   );
 
   const host = config.get<string>("API_HOST", "0.0.0.0");
-  const port = Number(config.get("API_PORT", 3000));
+  // Vercel/containers inject PORT; local demos often use API_PORT=3001
+  const port = Number(config.get("API_PORT") ?? process.env.PORT ?? 3000);
 
   await app.listen(port, host);
   Logger.log(`SokoOS API listening on http://${host}:${port}`, "Bootstrap");

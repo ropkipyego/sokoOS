@@ -3,85 +3,75 @@
 Use this for **client demos** while the product is still being built.  
 This is **not** a full production cutover.
 
-## What goes where
+## Decision (one project, path routing)
 
-| Surface | Host | Why |
+| Path | Service | Runtime |
 | --- | --- | --- |
-| Admin dashboard | **Vercel** | Static Vite SPA |
-| POS | **Vercel** | Static Vite SPA |
-| Public registration site | **Vercel** | Static Vite SPA |
-| Nest API + Postgres + Redis | **Not Vercel** | Long-running Node, Prisma, Redis/BullMQ, Socket.IO |
+| `/` | `admin-dashboard` | Vite static |
+| `/pos` | `desktop-pos` | Vite static |
+| `/register` | `public-web` | Vite static |
+| `/v1/*`, `/health/*` | `api` | Container (`Dockerfile`) |
 
-Put the API on **Railway**, **Render**, or **Fly.io** (or keep a small VPS). Point the Vercel apps at that API URL.
+Configured in the **repo-root** [`vercel.json`](../../vercel.json) with Vercel **Services**.
 
-## 1) Host the API (required first)
+**Why this shape**
 
-Minimum env on the API host:
+- One shareable demo URL (no three project URLs to juggle).
+- Browser SPAs call same-origin `/v1` — no `VITE_API_URL` required for demos.
+- Nest needs a long-running process → **container**, not a serverless function.
+- **No service bindings** for Vite→API: bindings are runtime-only for functions; the browser cannot use them.
+
+You still need **Postgres** (and Redis if you use queues) reachable from the API container via env vars.
+
+## 1) Create one Vercel project
+
+1. Import this monorepo at the **repository root** (so root `vercel.json` applies).
+2. Enable **Services** for the project if prompted (beta).
+3. Set API container env (Production + Preview as needed):
 
 ```bash
 NODE_ENV=production
 DATABASE_URL=postgresql://...
-REDIS_URL=redis://...          # optional for light demos
-JWT_ACCESS_SECRET=...          # ≥32 chars
-JWT_REFRESH_SECRET=...         # ≥32 chars
+REDIS_URL=redis://...                 # optional for light demos
+JWT_ACCESS_SECRET=...                 # ≥32 chars
+JWT_REFRESH_SECRET=...                # ≥32 chars
 API_HOST=0.0.0.0
-API_PORT=3001
-API_PUBLIC_URL=https://YOUR-API-HOST
-CORS_ORIGINS=https://admin-xxx.vercel.app,https://pos-xxx.vercel.app,https://web-xxx.vercel.app
-SOKOOS_PUBLIC_APP_URL=https://admin-xxx.vercel.app
+# PORT is usually injected by the platform; API_PORT optional override
+API_PUBLIC_URL=https://YOUR-PROJECT.vercel.app
+CORS_ORIGINS=https://YOUR-PROJECT.vercel.app
+SOKOOS_PUBLIC_APP_URL=https://YOUR-PROJECT.vercel.app
 ```
 
-Then migrate/seed:
+4. After the first deploy that can reach the DB:
 
 ```bash
+# from a machine with DATABASE_URL pointed at the same DB
 pnpm --filter @sokoos/database exec prisma db push
 pnpm --filter @sokoos/api seed
 ```
 
-Health checks:
+Health:
 
-- `GET https://YOUR-API-HOST/health/live`
-- `GET https://YOUR-API-HOST/health/ready`
+- `GET https://YOUR-PROJECT.vercel.app/health/live`
+- `GET https://YOUR-PROJECT.vercel.app/v1/...`
 
-`*.vercel.app` origins are allowed by the API CORS helper for demos. Still set `CORS_ORIGINS` to your exact project URLs when you have them.
+Vite builds default to `VITE_API_URL=/v1` in production. Only set `VITE_API_URL` if the API is hosted elsewhere.
 
-## 2) Deploy three Vercel projects from this monorepo
+### Fallback: API not on Vercel
 
-Create **three** Vercel projects, all linked to the same Git repo, with different root directories:
+If the container runtime is unavailable or too heavy for your plan, host Nest on Railway/Render/Fly and either:
 
-### Admin
+- Keep the three SPA services + path rewrites, and set `VITE_API_URL=https://YOUR-API-HOST/v1` on the Vite builds, **or**
+- Proxy `/v1` to that external host if your Vercel plan supports it.
 
-- **Root directory:** `apps/admin-dashboard`
-- **Framework:** Vite (auto from `vercel.json`)
-- **Env:**
-  - `VITE_API_URL=https://YOUR-API-HOST/v1`
+## 2) Public URLs after deploy
 
-### POS
-
-- **Root directory:** `apps/desktop-pos`
-- **Env:**
-  - `VITE_API_URL=https://YOUR-API-HOST/v1`
-
-### Public web (registration / marketing)
-
-- **Root directory:** `apps/public-web`
-- **Env:**
-  - `VITE_API_URL=https://YOUR-API-HOST/v1`
-  - `VITE_ADMIN_URL=https://YOUR-ADMIN.vercel.app`
-  - `VITE_PLATFORM_URL=https://YOUR-ADMIN.vercel.app/platform`
-
-Each app already has a `vercel.json` with monorepo install/build and SPA rewrites.
-
-### CLI alternative
-
-```bash
-# from repo root, after vercel login
-cd apps/admin-dashboard && vercel --yes
-cd ../desktop-pos && vercel --yes
-cd ../public-web && vercel --yes
-```
-
-Set the `VITE_*` env vars in the Vercel dashboard (Production + Preview), then redeploy.
+| Surface | URL |
+| --- | --- |
+| Admin | `https://YOUR-PROJECT.vercel.app/` |
+| POS | `https://YOUR-PROJECT.vercel.app/pos` |
+| Register / marketing | `https://YOUR-PROJECT.vercel.app/register` |
+| API | `https://YOUR-PROJECT.vercel.app/v1` |
 
 ## 3) Demo logins (after API seed)
 
@@ -89,26 +79,25 @@ Set the `VITE_*` env vars in the Vercel dashboard (Production + Preview), then r
 | --- | --- |
 | Tenant demo | Tenant `demo` · `demo@sokoos.local` · `Demo123!` |
 | Platform | Leave tenant blank · `platform@sokoos.local` · `Platform123!` |
-| New client | Register on public-web → you approve/provision in platform → they activate |
+| New client | Register under `/register` → approve/provision in platform → they activate |
 
 ## 4) Client demo checklist
 
-1. API health returns OK.
-2. Admin login works from the Vercel URL.
-3. POS login works from the Vercel URL.
+1. `/health/live` returns OK.
+2. Admin login works on `/`.
+3. POS login works on `/pos`.
 4. Create a **client-specific tenant** via platform (do not share the `demo` tenant with prospects).
 5. Do not promise production SLAs, custom domains, or live M-Pesa until those are configured and tested.
 
-## 5) Important limits for this setup
+## 5) Important limits
 
 - Offline POS sync still needs a reachable API; browser offline only covers local outbox until sync.
-- File uploads need durable storage (local disk on a single API instance is fragile — use object storage for anything serious).
-- Email invitations need a real `MAIL_PROVIDER` / SMTP in the API env, or show the one-time activation token from the platform UI in demos.
-- Custom tenant subdomains (`client.sokoos.com`) need DNS + TLS — not provided by Vercel static apps alone.
+- File uploads need durable object storage for anything serious.
+- Email invitations need a real `MAIL_PROVIDER` / SMTP, or show the activation token from the platform UI in demos.
+- Custom tenant subdomains need DNS + TLS beyond this demo layout.
 
 ## Quick “demo today” path
 
-1. Deploy API to Railway/Render with Postgres.
-2. Seed demo + create the client tenant.
-3. Deploy admin + POS + public-web to Vercel with `VITE_API_URL`.
-4. Share the admin URL + that client’s invite/activation link.
+1. Deploy this repo as **one** Vercel project (root `vercel.json`).
+2. Wire `DATABASE_URL` (+ secrets) on the `api` service; migrate + seed.
+3. Share `https://YOUR-PROJECT.vercel.app/` (and `/pos`, `/register` as needed).

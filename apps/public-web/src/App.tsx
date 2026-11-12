@@ -21,10 +21,15 @@ type Plan = {
   interval: string;
 };
 
-const API = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:3001/v1";
-const ADMIN_URL = (import.meta.env.VITE_ADMIN_URL as string | undefined) ?? "http://127.0.0.1:5175";
+const API =
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.PROD ? "/v1" : "http://127.0.0.1:3001/v1");
+const ADMIN_URL =
+  (import.meta.env.VITE_ADMIN_URL as string | undefined) ??
+  (import.meta.env.PROD ? "/" : "http://127.0.0.1:5175");
 const PLATFORM_URL =
-  (import.meta.env.VITE_PLATFORM_URL as string | undefined) ?? "http://127.0.0.1:5175/platform";
+  (import.meta.env.VITE_PLATFORM_URL as string | undefined) ??
+  (import.meta.env.PROD ? "/platform" : "http://127.0.0.1:5175/platform");
 
 const NAV: Array<{ id: Page; label: string }> = [
   { id: "home", label: "Home" },
