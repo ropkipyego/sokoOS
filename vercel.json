@@ -4,7 +4,7 @@
     "admin-dashboard": {
       "root": "apps/admin-dashboard",
       "framework": "vite",
-      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "installCommand": "cd ../.. && corepack enable && PRISMA_SKIP_POSTINSTALL_GENERATE=1 pnpm install --frozen-lockfile",
       "buildCommand": "cd ../.. && pnpm --filter @sokoos/types build && pnpm --filter @sokoos/ui build && pnpm --filter @sokoos/admin-dashboard build",
       "outputDirectory": "dist",
       "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
@@ -12,7 +12,7 @@
     "desktop-pos": {
       "root": "apps/desktop-pos",
       "framework": "vite",
-      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "installCommand": "cd ../.. && corepack enable && PRISMA_SKIP_POSTINSTALL_GENERATE=1 pnpm install --frozen-lockfile",
       "buildCommand": "cd ../.. && pnpm --filter @sokoos/ui build && pnpm --filter @sokoos/desktop-pos build",
       "outputDirectory": "dist",
       "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
@@ -20,7 +20,7 @@
     "public-web": {
       "root": "apps/public-web",
       "framework": "vite",
-      "installCommand": "cd ../.. && corepack enable && pnpm install --frozen-lockfile",
+      "installCommand": "cd ../.. && corepack enable && PRISMA_SKIP_POSTINSTALL_GENERATE=1 pnpm install --frozen-lockfile",
       "buildCommand": "cd ../.. && pnpm --filter @sokoos/public-web build",
       "outputDirectory": "dist",
       "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]

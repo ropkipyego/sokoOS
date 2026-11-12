@@ -101,3 +101,26 @@ If the container runtime is unavailable or too heavy for your plan, host Nest on
 1. Deploy this repo as **one** Vercel project (root `vercel.json`).
 2. Wire `DATABASE_URL` (+ secrets) on the `api` service; migrate + seed.
 3. Share `https://YOUR-PROJECT.vercel.app/` (and `/pos`, `/register` as needed).
+
+## Login not working on Vercel
+
+The admin SPA talking to `/v1` is fine. Login fails when the **API container** cannot serve or has no users.
+
+1. **Port** — Nest must listen on Vercel’s container port (`PORT`, default **80**). Do **not** set `API_PORT=3001` on Vercel unless you also set `PORT` to the same value.
+2. **Env on the `api` service** (required):
+   - `DATABASE_URL` → reachable Postgres (Neon/Supabase/Railway/etc.)
+   - `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` (≥32 chars)
+3. **Schema + seed** (against that same `DATABASE_URL`):
+
+```bash
+pnpm --filter @sokoos/database exec prisma db push
+pnpm --filter @sokoos/api seed
+```
+
+4. **Smoke checks**
+   - `GET https://YOUR-PROJECT.vercel.app/health/live` → OK
+   - `POST https://YOUR-PROJECT.vercel.app/v1/auth/login` with demo credentials → 201
+
+Build log noise that is **safe to ignore**: Prisma schema postinstall on Vite services, Vite chunk size, `HEALTHCHECK` OCI warning.
+
+If `/health/live` is 502, the container is not listening on the routed port — redeploy after the PORT fix. If health is OK but login fails with invalid credentials, the DB is empty — run seed.

@@ -37,13 +37,18 @@ COPY packages/types packages/types
 COPY packages/utils packages/utils
 COPY packages/sync-protocol packages/sync-protocol
 COPY services/api services/api
-RUN pnpm --filter @sokoos/api... build
+# prisma generate needs a URL placeholder; runtime uses real DATABASE_URL
+ENV DATABASE_URL="postgresql://build:build@127.0.0.1:5432/build?schema=public"
+RUN pnpm --filter @sokoos/database exec prisma generate \
+  && pnpm --filter @sokoos/api... build
 
 # ---------------------------------------------------------------------------
 # production: runtime with built workspace graph
 # ---------------------------------------------------------------------------
 FROM node:${NODE_VERSION}-alpine AS production
 ENV NODE_ENV=production
+# Vercel routes container traffic to PORT (defaults to 80). Compose overrides to 3000.
+ENV PORT=80
 WORKDIR /app
 
 RUN addgroup -S sokoos && adduser -S sokoos -G sokoos
@@ -57,8 +62,6 @@ COPY --from=build /app/services/api/node_modules ./services/api/node_modules
 
 USER sokoos
 WORKDIR /app/services/api
-EXPOSE 3000
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:3000/health/live').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+EXPOSE 80
 
 CMD ["node", "dist/main.js"]
