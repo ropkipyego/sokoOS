@@ -133,10 +133,9 @@ export class RolesService {
   }
 
   async listRoles(tenantId: string) {
+    // Tenant-scoped only — never surface platform roles (null tenantId / platform_* keys)
     return this.prisma.role.findMany({
-      where: {
-        OR: [{ tenantId }, { tenantId: null, isSystem: true }],
-      },
+      where: { tenantId },
       include: {
         rolePermissions: { include: { permission: true } },
       },
@@ -150,10 +149,7 @@ export class RolesService {
 
   async getRole(tenantId: string, id: string) {
     const role = await this.prisma.role.findFirst({
-      where: {
-        id,
-        OR: [{ tenantId }, { tenantId: null }],
-      },
+      where: { id, tenantId },
       include: {
         rolePermissions: { include: { permission: true } },
       },
@@ -168,6 +164,12 @@ export class RolesService {
     tenantId: string,
     input: { key: string; name: string; permissionKeys?: string[] },
   ) {
+    if (input.key === "platform_owner" || input.key.startsWith("platform_")) {
+      throw new ConflictException({
+        code: "PLATFORM_ROLE_FORBIDDEN",
+        message: "Cannot create platform-scoped roles in a tenant",
+      });
+    }
     const existing = await this.prisma.role.findFirst({
       where: { tenantId, key: input.key },
     });
@@ -205,6 +207,12 @@ export class RolesService {
       throw new ConflictException({
         code: "CONFLICT",
         message: "Cannot modify platform system role permissions",
+      });
+    }
+    if (permissionKeys.some((k) => k.startsWith("platform."))) {
+      throw new ConflictException({
+        code: "PLATFORM_PERMISSION_FORBIDDEN",
+        message: "Platform permissions cannot be granted through tenant roles",
       });
     }
 

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.node.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit",
-    "test": "node --import tsx --test src/**/*.test.ts",
+    "test": "node --import tsx --test src/offlineSale.test.ts src/sync/buildEnvelope.test.ts",
     "electron:stub": "echo \"Electron stub at electron/main.ts — package after vite build\"",
     "clean": "rm -rf dist"
   },

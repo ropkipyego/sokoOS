@@ -61,6 +61,7 @@ function PosTerminal() {
   const [db, setDb] = useState<LocalDb | null>(null);
   const [sync, setSync] = useState<SyncWorker | null>(null);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
+  const [pendingSync, setPendingSync] = useState(0);
   const [products, setProducts] = useState<ProductRecord[]>([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
@@ -168,10 +169,16 @@ function PosTerminal() {
       setDb(localDb);
       worker = new SyncWorker(localDb, {
         accessToken: session.accessToken,
-        deviceId: sessionStorage.getItem("sokoos.pos.deviceId") ?? undefined,
+        deviceId: session.deviceId ?? sessionStorage.getItem("sokoos.pos.deviceId") ?? undefined,
+        tenantId: session.tenantId,
+        branchId: session.branchId,
+        actorUserId: session.cashierId,
       });
       setSync(worker);
-      worker.subscribe(setSyncStatus);
+      worker.subscribe((status, pending) => {
+        setSyncStatus(status);
+        setPendingSync(pending);
+      });
       void worker.flush();
       try {
         const remote = await apiRequest<Array<{
@@ -519,7 +526,7 @@ function PosTerminal() {
           </span>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <SyncPill status={syncStatus} />
+          <SyncPill status={syncStatus} pending={pendingSync} />
           <button
             type="button"
             className={`rounded-[var(--soko-radius-md)] border px-2 py-1 text-xs font-semibold ${
@@ -872,13 +879,13 @@ function PosTerminal() {
   );
 }
 
-function SyncPill({ status }: { status: SyncStatus }) {
+function SyncPill({ status, pending }: { status: SyncStatus; pending: number }) {
   const label =
     status === "synced" ? "ONLINE · synced"
-      : status === "syncing" ? "SYNCING"
-        : status === "offline" ? "OFFLINE"
-          : status === "error" ? "SYNC_ERROR"
-            : "PENDING_SYNC";
+      : status === "syncing" ? `SYNCING${pending ? ` · ${pending}` : ""}`
+        : status === "offline" ? `OFFLINE${pending ? ` · ${pending} queued` : ""}`
+          : status === "error" ? `SYNC_ERROR${pending ? ` · ${pending} queued` : ""}`
+            : pending > 0 ? `PENDING · ${pending}` : "IDLE";
   return (
     <span className="rounded-[var(--soko-radius-md)] border border-[var(--soko-color-border)] bg-[var(--soko-color-surface)] px-2 py-1 font-semibold text-[var(--soko-color-text-muted)]">
       {label}

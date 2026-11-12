@@ -69,15 +69,22 @@ pnpm build
 pnpm --filter @sokoos/database db:push
 pnpm --filter @sokoos/api seed
 
-# API
-pnpm --filter @sokoos/api start:dev          # http://localhost:3000
+# API (preferred local path — keep this terminal open)
+./scripts/start-api-only.sh                  # http://127.0.0.1:3001
 
-# Admin + POS
-pnpm --filter @sokoos/admin-dashboard dev    # http://localhost:5173
-pnpm --filter @sokoos/desktop-pos dev        # http://localhost:5174
+# Frontends (separate terminal)
+npm run dev                                  # Admin :5175 · POS :5174 · Public :5176
+
+# If login fails after a DB recreate, restore demo users (does not wipe data):
+./scripts/demo-ready.sh
 ```
 
-Demo login (after seed): `demo@sokoos.local` / `Demo123!` (tenant `demo`).
+**Demo logins (after seed):**
+- Tenant: slug `demo` · `demo@sokoos.local` · `Demo123!`
+- Platform: leave tenant blank · `platform@sokoos.local` · `Platform123!`
+
+**Client signup:** public register at `:5176` → email verify → platform approve/provision → admin activates via `/activate`. Or create the business yourself in the platform console.
+
 
 Logical service boundaries (auth, sales, returns, inventory, sync, reporting, notifications) live as modules inside `services/api` until extraction is justified.
 

@@ -8,11 +8,13 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "turbo run build",
-    "dev": "turbo run dev",
-    "lint": "turbo run lint",
-    "test": "turbo run test",
-    "typecheck": "turbo run typecheck",
+    "build": "turbo run build --concurrency=16",
+    "dev": "turbo run dev --concurrency=16",
+    "dev:api": "pnpm --filter @sokoos/api dev",
+    "stack:api": "bash scripts/ensure-api.sh",
+    "lint": "turbo run lint --concurrency=16",
+    "test": "turbo run test --concurrency=16",
+    "typecheck": "turbo run typecheck --concurrency=16",
     "clean": "turbo run clean && rm -rf node_modules"
   },
   "devDependencies": {

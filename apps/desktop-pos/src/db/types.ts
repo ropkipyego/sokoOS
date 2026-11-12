@@ -61,6 +61,13 @@ export type PaymentTender = "cash" | "mpesa" | "card" | "bank" | "credit";
 
 export type CompleteSaleInput = {
   branchId: string;
+  warehouseId?: string;
+  departmentId?: string;
+  customerId?: string;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  currency?: string;
+  cashTenderedCents?: number;
   tender: PaymentTender;
   lines: Array<{
     productId: string;

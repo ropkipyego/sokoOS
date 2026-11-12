@@ -20,13 +20,16 @@ test("completeSale writes sale, stock movement, and outbox without network", asy
   assert.ok(before);
 
   const sale = await db.completeSale({
-    branchId: "branch_1",
+    branchId: crypto.randomUUID(),
+    warehouseId: crypto.randomUUID(),
     tender: "cash",
+    cashTenderedCents: 10_000,
     lines: [{ productId: "prod_rice", qty: 2 }],
   });
 
   assert.equal(sale.lines.length, 1);
   assert.equal(sale.synced, false);
+  assert.match(sale.id, /^[0-9a-f-]{36}$/i);
 
   const after = await db.getProduct("prod_rice");
   assert.equal(after?.stock, (before?.stock ?? 0) - 2);
@@ -36,6 +39,10 @@ test("completeSale writes sale, stock movement, and outbox without network", asy
   assert.equal(movements[0]?.delta, -2);
 
   const outbox = await db.listOutbox();
-  assert.ok(outbox.some((item) => item.entityType === "sale"));
-  assert.ok(outbox.some((item) => item.entityType === "stock_movement"));
+  assert.equal(outbox.length, 1);
+  assert.equal(outbox[0]?.entityType, "sale");
+  assert.equal(outbox[0]?.entityId, sale.id);
+  const payload = outbox[0]?.payload as { items: unknown[]; payments: unknown[] };
+  assert.ok(Array.isArray(payload.items) && payload.items.length === 1);
+  assert.ok(Array.isArray(payload.payments) && payload.payments.length === 1);
 });

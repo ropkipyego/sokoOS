@@ -5,8 +5,9 @@
   "description": "SokoOS cloud API — NestJS modular monolith",
   "scripts": {
     "build": "nest build",
+    "dev": "sh -c 'rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json && node dist/main.js'",
     "start": "node dist/main.js",
-    "start:dev": "nest start --watch",
+    "start:dev": "sh -c 'rm -rf dist tsconfig.build.tsbuildinfo && tsc -p tsconfig.build.json && node dist/main.js'",
     "start:debug": "nest start --debug --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",

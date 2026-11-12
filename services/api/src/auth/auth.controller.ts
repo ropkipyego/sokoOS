@@ -71,7 +71,8 @@ export class AuthController {
   constructor(private readonly auth: AuthService) {}
 
   @Public()
-  @Throttle({ default: { limit: 10, ttl: 900_000 } })
+  // 30/min — still slows brute force without locking the console for 15 minutes after a few retries
+  @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @Post("login")
   async login(
     @Body() body: LoginDto,

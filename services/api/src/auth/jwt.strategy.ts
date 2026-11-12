@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from "@nestjs/common";
+import { Inject, Injectable, UnauthorizedException } from "@nestjs/common";
 import { PassportStrategy } from "@nestjs/passport";
 import { ExtractJwt, Strategy } from "passport-jwt";
 import { ConfigService } from "@nestjs/config";
@@ -20,16 +20,17 @@ export type JwtPayload = {
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy, "jwt") {
   constructor(
-    config: ConfigService,
+    @Inject(ConfigService) config: ConfigService,
     private readonly prisma: PrismaService,
   ) {
+    const secret =
+      config?.get<string>("JWT_ACCESS_SECRET") ??
+      process.env.JWT_ACCESS_SECRET ??
+      "change-me-access-secret-min-32-chars";
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: config.get<string>(
-        "JWT_ACCESS_SECRET",
-        "change-me-access-secret-min-32-chars",
-      ),
+      secretOrKey: secret,
     });
   }
 

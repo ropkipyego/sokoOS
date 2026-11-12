@@ -23,6 +23,10 @@ const TEMPLATES: Record<string, (ctx: TemplateContext) => RenderedEmail> = {
     subject: `Activate your SokoOS administrator account — ${c.businessName}`,
     text: `Hello ${c.adminName},\n\nYou are invited to administer ${c.businessName}.\nActivate (one-time, expires): ${c.activateUrl}\nHostname: ${c.hostname}\n\nNever share this link. SokoOS will never email a permanent password.\n\n— SokoOS`,
   }),
+  "employee.invitation": (c) => ({
+    subject: `You're invited to join ${c.businessName} on SokoOS`,
+    text: `Hello ${c.adminName},\n\nYou have been invited to join ${c.businessName}.\nActivate your account (one-time, expires): ${c.activateUrl}\nHostname: ${c.hostname}\n\nNever share this link. SokoOS will never email a permanent password.\n\n— SokoOS`,
+  }),
   "invitation.reminder": (c) => ({
     subject: `Reminder: activate ${c.businessName}`,
     text: `Hello ${c.adminName},\n\nYour invitation is still pending. Activate: ${c.activateUrl}\nExpires: ${c.expiresAt}\n\n— SokoOS`,

@@ -88,7 +88,7 @@ export function PlatformOverviewPage() {
         {QUICK_LINKS.map((l) => (
           <Link
             key={l.to}
-            to={l.to}
+            to={l.to as never}
             className="rounded-md border border-[var(--soko-color-border)] bg-[var(--soko-color-surface)] px-3 py-2 text-sm font-medium hover:border-[var(--soko-color-primary)]"
           >
             {l.label}

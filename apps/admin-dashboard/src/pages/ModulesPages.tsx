@@ -54,26 +54,64 @@ export function UsersPage() {
   const { rows, error, reload, token } = useList<{ id: string; name: string; email: string; status: string }>("/users");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("ChangeMe123!");
-  async function onCreate(e: FormEvent) {
+  const [msg, setMsg] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function onInvite(e: FormEvent) {
     e.preventDefault();
-    await apiRequest("/users", { method: "POST", token, body: { name, email, password } });
-    await reload();
+    setBusy(true);
+    setFormError(null);
+    setMsg(null);
+    try {
+      const data = await apiRequest<{
+        user: { email: string };
+        activationToken: string;
+        activateUrl: string;
+      }>("/users/invite", { method: "POST", token, body: { name, email } });
+      setMsg(
+        `Invited ${data.user.email}. One-time activation link issued (also emailed). Token shown once: ${data.activationToken}`,
+      );
+      setName("");
+      setEmail("");
+      await reload();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Invite failed");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
-    <AppShell title="Employees" description="Accounts, branch assignment, and role-based access. Backend enforces permissions.">
+    <AppShell
+      title="Employees"
+      description="Invite staff with a one-time activation link. Permanent passwords are never emailed. Backend enforces permissions."
+    >
       {error ? <p className="text-sm text-[var(--soko-color-danger)]">{error}</p> : null}
-      <form onSubmit={onCreate} className="mb-4 grid gap-3 md:grid-cols-4">
-        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} />
-        <Input label="Email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        <Input label="Temp password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <Button type="submit">Invite</Button>
+      {formError ? <p className="text-sm text-[var(--soko-color-danger)]">{formError}</p> : null}
+      {msg ? <p className="mb-3 break-all text-sm text-[var(--soko-color-accent)]">{msg}</p> : null}
+      <form onSubmit={(e) => void onInvite(e)} className="mb-4 grid gap-3 md:grid-cols-3">
+        <Input label="Name" value={name} onChange={(e) => setName(e.target.value)} required />
+        <Input label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        <div className="flex items-end">
+          <Button type="submit" disabled={busy || !name.trim() || !email.trim()}>
+            {busy ? "Sending…" : "Send invitation"}
+          </Button>
+        </div>
       </form>
       <table className="w-full text-sm">
-        <thead><tr className="text-left text-[var(--soko-color-text-muted)]"><th className="py-2">Name</th><th>Email</th><th>Status</th></tr></thead>
+        <thead>
+          <tr className="text-left text-[var(--soko-color-text-muted)]">
+            <th className="py-2">Name</th>
+            <th>Email</th>
+            <th>Status</th>
+          </tr>
+        </thead>
         <tbody>
           {rows.map((u) => (
-            <tr key={u.id} className="border-t border-[var(--soko-color-border)]"><td className="py-2">{u.name}</td><td>{u.email}</td><td>{u.status}</td></tr>
+            <tr key={u.id} className="border-t border-[var(--soko-color-border)]">
+              <td className="py-2">{u.name}</td>
+              <td>{u.email}</td>
+              <td>{u.status}</td>
+            </tr>
           ))}
         </tbody>
       </table>

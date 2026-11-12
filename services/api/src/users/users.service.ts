@@ -2,10 +2,16 @@ import {
   Injectable,
   NotFoundException,
   ConflictException,
+  BadRequestException,
+  ForbiddenException,
 } from "@nestjs/common";
+import { ConfigService } from "@nestjs/config";
+import { createHash, randomBytes } from "node:crypto";
 import * as bcrypt from "bcryptjs";
 import { PrismaService } from "../prisma/prisma.service";
 import { RolesService } from "../roles/roles.service";
+import { isTenantAssignableRole } from "../roles/role-scope";
+import { EmailService } from "../email/email.service";
 import { decodeCursor, encodeCursor, paginateMeta } from "../common/pagination";
 
 @Injectable()
@@ -13,6 +19,8 @@ export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly roles: RolesService,
+    private readonly email: EmailService,
+    private readonly config: ConfigService,
   ) {}
 
   async list(tenantId: string, opts: { limit?: number; cursor?: string } = {}) {
@@ -127,6 +135,118 @@ export class UsersService {
     return this.get(tenantId, id);
   }
 
+  /**
+   * Secure employee invitation — never emails a permanent password.
+   * Returns raw token once for operator fallback when mail is in dev mode.
+   */
+  async invite(
+    tenantId: string,
+    actorUserId: string,
+    input: {
+      email: string;
+      name: string;
+      phone?: string;
+      roleId?: string;
+      branchId?: string;
+    },
+  ) {
+    const email = input.email.trim().toLowerCase();
+    const name = input.name.trim();
+    if (!email || !name) {
+      throw new BadRequestException({
+        code: "VALIDATION_FAILED",
+        message: "Name and email are required",
+      });
+    }
+    const existing = await this.prisma.user.findFirst({ where: { tenantId, email } });
+    if (existing) {
+      throw new ConflictException({ code: "CONFLICT", message: "Email already in use" });
+    }
+
+    const tenant = await this.prisma.tenant.findUnique({ where: { id: tenantId } });
+    if (!tenant) throw new NotFoundException({ code: "NOT_FOUND", message: "Tenant not found" });
+
+    const rawToken = randomBytes(32).toString("hex");
+    const tokenHash = createHash("sha256").update(rawToken).digest("hex");
+    const passwordHash = await bcrypt.hash(randomBytes(48).toString("hex"), 12);
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: {
+          tenantId,
+          email,
+          name,
+          phone: input.phone,
+          passwordHash,
+          status: "invited",
+        },
+      });
+      await tx.tenantInvitation.create({
+        data: {
+          tenantId,
+          email,
+          name,
+          roleKey: "employee",
+          status: "pending",
+          tokenHash,
+          expiresAt,
+          invitedByUserId: actorUserId,
+          resultingUserId: created.id,
+        },
+      });
+      await tx.auditLog.create({
+        data: {
+          tenantId,
+          actorUserId,
+          action: "tenant.user.invite",
+          entityType: "user",
+          entityId: created.id,
+          metadata: { email },
+        },
+      });
+      return created;
+    });
+
+    if (input.roleId) {
+      await this.assignRole(tenantId, user.id, {
+        roleId: input.roleId,
+        branchId: input.branchId,
+      });
+    }
+
+    const domain = await this.prisma.tenantDomain.findFirst({
+      where: { tenantId, isPrimary: true, status: { not: "removed" } },
+    });
+    const appBase = (
+      this.config.get<string>("SOKOOS_PUBLIC_APP_URL") ??
+      this.config.get<string>("API_PUBLIC_URL") ??
+      "http://localhost:5175"
+    ).replace(/\/$/, "");
+    const activateUrl = `${appBase}/activate?token=${rawToken}`;
+    const mail = await this.email.enqueue({
+      templateKey: "employee.invitation",
+      toEmail: email,
+      toName: name,
+      tenantId,
+      idempotencyKey: `tenant.invite:${user.id}`,
+      context: {
+        adminName: name,
+        businessName: tenant.name,
+        activateUrl,
+        hostname: domain?.hostname ?? `${tenant.slug}.sokoos.com`,
+      },
+    });
+    await this.email.processOne(mail.id);
+
+    return {
+      user: await this.get(tenantId, user.id),
+      activationToken: rawToken,
+      activateUrl,
+      expiresAt,
+    };
+  }
+
   async assignRole(
     tenantId: string,
     userId: string,
@@ -134,13 +254,16 @@ export class UsersService {
   ) {
     await this.get(tenantId, userId);
     const role = await this.prisma.role.findFirst({
-      where: {
-        id: input.roleId,
-        OR: [{ tenantId }, { tenantId: null }],
-      },
+      where: { id: input.roleId },
     });
-    if (!role) {
-      throw new NotFoundException({ code: "NOT_FOUND", message: "Role not found" });
+    if (!isTenantAssignableRole(role, tenantId)) {
+      if (!role || role.tenantId !== tenantId) {
+        throw new NotFoundException({ code: "NOT_FOUND", message: "Role not found" });
+      }
+      throw new ForbiddenException({
+        code: "PLATFORM_ROLE_FORBIDDEN",
+        message: "Platform roles cannot be assigned to tenant users",
+      });
     }
 
     const ur = await this.prisma.userRole.create({

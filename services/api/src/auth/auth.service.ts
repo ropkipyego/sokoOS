@@ -366,9 +366,20 @@ export class AuthService {
         where: { id: input.deviceId, tenantId },
       });
       if (existing) {
-        throw new ConflictException({
-          code: "CONFLICT",
-          message: "Device already registered",
+        // Idempotent re-register (POS restart / re-login) — do not create duplicates
+        if (existing.status === "disabled") {
+          throw new ConflictException({
+            code: "DEVICE_DISABLED",
+            message: "Device is disabled",
+          });
+        }
+        return this.prisma.device.update({
+          where: { id: existing.id },
+          data: {
+            name: input.name || existing.name,
+            branchId: input.branchId,
+            lastSeenAt: new Date(),
+          },
         });
       }
     }
