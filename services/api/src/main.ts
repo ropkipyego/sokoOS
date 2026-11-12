@@ -27,6 +27,14 @@ async function bootstrap() {
       if (/^https:\/\/[a-z0-9-]+\.trycloudflare\.com$/.test(origin)) {
         return cb(null, true);
       }
+      // Vercel preview + production demo frontends
+      if (/^https:\/\/[a-z0-9-]+([.][a-z0-9-]+)*\.vercel\.app$/.test(origin)) {
+        return cb(null, true);
+      }
+      // Vercel preview + production frontends for client demos
+      if (/^https:\/\/[a-z0-9-]+(-[a-z0-9-]+)*\.vercel\.app$/.test(origin)) {
+        return cb(null, true);
+      }
       // Managed / custom tenant hosts (production + local *.localhost)
       const baseDomain = (config.get<string>("SOKOOS_BASE_DOMAIN") ?? "sokoos.com").replace(
         /\./g,

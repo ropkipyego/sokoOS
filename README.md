@@ -97,6 +97,12 @@ Logical service boundaries (auth, sales, returns, inventory, sync, reporting, no
 | Local | SQLite (encrypted) |
 | Infra | Docker, GitHub Actions, Object Storage, OpenAPI |
 
+## Demo hosting (Vercel)
+
+Frontends (Admin / POS / Public) can deploy to **Vercel** for client demos.  
+The Nest API + Postgres must run elsewhere (Railway / Render / Fly).  
+Guide: [`docs/deployment/VERCEL-DEMO.md`](./docs/deployment/VERCEL-DEMO.md)
+
 ## Documentation
 
 Start here: [`docs/README.md`](./docs/README.md)
